@@ -17,7 +17,7 @@ import os, time, argparse
 # Hard-coded settings
 # -----
 
-test_root = "/glade/scratch/" + os.environ("USER") + "/nodetests"
+test_root = "/glade/scratch/" + os.environ["USER"] + "/nodetests"
 
 # -----
 # Global variables
