@@ -1,7 +1,7 @@
 # -----
 #	driver.py
 #	Author:		Brian Vanderwende
-#	Updated:	21 August 2016
+#	Revised:	21 August 2016
 #
 #	This script queries available nodes, assigns node pairs, and runs a WRF job
 #	on those pairs to test the integrity of the nodes and interconnects. The

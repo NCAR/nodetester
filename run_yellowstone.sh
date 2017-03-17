@@ -9,7 +9,7 @@
 
 # Test configuration
 CASE=def_ys
-QUEUE=regular
+QUEUE=special
 NODES=ys[0-6]
 PROJ=SCSG0001
 
