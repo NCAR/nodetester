@@ -28,6 +28,7 @@ log 		= []
 init_time	= 0
 last_time	= 0
 num_jobs	= 0
+total_jobs	= 0
 clo_dict	= {	"batch"		: ["batch system to use (PBS or LSF)"],
 				"project"	: ["project allocation to use for jobs","SCSG0001"],
 				"queue"		: ["queue on which tests are submitted","caldera"],
@@ -96,17 +97,19 @@ def check_results(jobs):
 	return jobs
 
 def print_status(jobs):
-	global num_jobs, last_time, init_time, log
+	global num_jobs, total_jobs, last_time, init_time, log
 	jobs 		= check_results(jobs)
 	num_active 	= len(jobs)
-	pct_done	= 100.0 * (num_jobs - num_active) / num_jobs
+	pct_submit	= 100.0 * num_jobs / total_jobs
+	pct_done	= 100.0 * (num_jobs - num_active) / total_jobs
 	last_time	= time.time()
 	
 	tmp = os.system("clear")
 	print "Time passed - {} seconds".format(int(last_time - init_time))
-	print "   Total jobs submitted  = {}".format(num_jobs)
-	print "   Number of active jobs = {}".format(num_active)
-	print "   Percent complete      = {}".format(pct_done)
+	print "   Total jobs submitted          = {}".format(num_jobs)
+	print "   Number of queued/running jobs = {}".format(num_active)
+	print "   Percent submitted of total    = {:4.1f}%".format(pct_submit)
+	print "   Percent finished of total     = {:4.1f}%".format(pct_done)
 	print "\nEvent Log:"
 	print '\n'.join(log)
 
@@ -149,7 +152,7 @@ def init_tests(tid, pairs, args):
 # -----
 
 def main():
-	global init_time, last_time
+	global init_time, last_time, total_jobs
 
 	# Define command-line arguments
 	parser = argparse.ArgumentParser(prog = "driver.py",
@@ -180,10 +183,11 @@ def main():
 	print "\nCase created in: {}".format(test_root + '/' + tid)
 
 	# Get node pairs
-	nodes = get_nodes(args.batch, args.nodes)
-	pairs = create_pairs(nodes)
+	nodes 		= get_nodes(args.batch, args.nodes)
+	pairs 		= create_pairs(nodes)
+	total_jobs	= len(pairs)
 
-	print "Submitting {} jobs to scheduler...".format(len(pairs))
+	print "Submitting {} jobs to scheduler...".format(total_jobs)
 
 	# Prepare pair run directories and submit jobs
 	init_time	= time.time()
