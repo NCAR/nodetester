@@ -9,9 +9,9 @@
 #	on completion percentages.
 # -----
 
-from plumbum import local
+from sh import grep, cp
 from datetime import datetime
-import os, time, argparse 
+import sys, os, time, argparse 
 
 # -----
 # Hard-coded settings
@@ -23,24 +23,43 @@ test_root = "/glade/scratch/" + os.environ["USER"] + "/nodetests"
 # Global variables
 # -----
 
+cp 			= cp.bake("-r")
 log 		= []
-clo_dict	= {	"project"	: ["project allocation to use for jobs","SCSG0001"],
+init_time	= 0
+last_time	= 0
+num_jobs	= 0
+clo_dict	= {	"batch"		: ["batch system to use (PBS or LSF)"],
+				"project"	: ["project allocation to use for jobs","SCSG0001"],
 				"queue"		: ["queue on which tests are submitted","caldera"],
-				"nodes"		: ["search string for nodes",None],
+				"nodes"		: ["search string for nodes",'.'],
 				"case"		: ["name of test case to execute","def_ca"] }
 
 # -----
 # Local routines
 # -----
 
-def get_nodes(key):
-	# Define interface to POSIX/LSF commands
-	bhosts = local["bhosts"] | local["grep"][key]
-	
+def get_nodes(batch, key):
 	# Execute and store node/host names
-	nodes = bhosts().splitlines()
+	if batch == "LSF":
+		from sh import bhosts as host_list
+		key += ".*ok"
+	elif batch == "PBS":
+		from sh import pbsnodes as host_list
+		dead_hosts 	= host_list.bake("-l")
+		host_list	= host_list.bake("-a")
+	else:
+		print "Error: {} is not a known batch system. Exiting ...".format(batch)
+		sys.exit(1)
+		
+	nodes = grep(key, _in = grep("-v","^    ", _in = host_list())).splitlines()
 	nodes = [node.split()[0] for node in nodes]
-
+	
+	# If PBS, need to find and remove dead hosts
+	if batch == "PBS":
+		dead_nodes 	= dead_hosts().splitlines()
+		dead_nodes 	= [dead_node.split()[0] for dead_node in dead_nodes]
+		nodes		= [node for node in nodes if node not in dead_nodes]
+	
 	return nodes
 
 def create_pairs(nodes):
@@ -53,35 +72,11 @@ def create_pairs(nodes):
 
 	# If odd number of nodes, add extra pair using first node and last
 	if len(nodes) % 2 == 1:
-		print "   Warning: odd number of nodes... submitting extra job to test"
-		print "            final node. This job may not start until others are"
-		print "            finished execution!"
+		print "   Note: odd number of nodes... submitting extra job for final node"
+		print "         This job may not start until others are finished execution!"
 		pairs.append([nodes[0], nodes[-1]])
 
 	return pairs
-
-def init_tests(tid, pairs, args):
-	# Define interface to POSIX/LSF commands
-	copy = local["cp"]["-r"]
-	bsub = local["bsub"]
-	test = local["echo"]
-
-	# List containing pair job name
-	jobs = []
-
-	# For each pair, create directory from case
-	for nodes in pairs:
-		name = nodes[0].split('-')[0] + '-' + nodes[1].split('-')[0]
-		jobs.append(test_root + '/' + tid + "/results/" + name)
-		nodes.append(test_root + '/' + tid + '/'+ name)
-		copy(args.case, nodes[2])
-
-	# For each pair, submit job
-	for nodes in pairs:
-		(bsub < (nodes[2] + "/runwrf.job"))("-q",args.queue,"-P",args.project,	\
-				"-m",' '.join(nodes[0:2]),"-cwd",nodes[2])
-
-	return jobs
 
 def check_results(jobs):
 	# Check for completed jobs and log errors
@@ -100,33 +95,83 @@ def check_results(jobs):
 
 	return jobs
 
+def print_status(jobs):
+	global num_jobs, last_time, init_time, log
+	jobs 		= check_results(jobs)
+	num_active 	= len(jobs)
+	pct_done	= 100.0 * (num_jobs - num_active) / num_jobs
+	last_time	= time.time()
+	
+	tmp = os.system("clear")
+	print "Time passed - {} seconds".format(int(last_time - init_time))
+	print "   Total jobs submitted  = {}".format(num_jobs)
+	print "   Number of active jobs = {}".format(num_active)
+	print "   Percent complete      = {}".format(pct_done)
+	print "\nEvent Log:"
+	print '\n'.join(log)
+
+	return jobs
+
+def init_tests(tid, pairs, args):
+	global num_jobs, last_time
+	jobs 		= []
+	main_dir	= os.getcwd()
+
+	for nodes in pairs:
+		# Create job directory
+		name = nodes[0].split('-')[0] + '-' + nodes[1].split('-')[0]
+		nodes.append(test_root + '/' + tid + '/'+ name)
+		cp(args.case, nodes[2])
+		os.chdir(nodes[2])
+
+		if args.batch == "LSF":
+			from sh import bsub
+			with open(nodes[2] + "/runwrf.job", 'r') as jf:
+				bsub(_in = jf, m = ' '.join(nodes[0:2]), P = args.project, q = args.queue)
+		elif args.batch == "PBS":
+			from sh import qsub
+			sh = "select=" + '+'.join(["ncpus=36:mpiprocs=36:host={}".format(nid) 
+					for nid in nodes[0:2]])
+			qsub("-l", sh, "-A",  args.project, "-q", args.queue, nodes[2] + "/runwrf.job")
+		
+		# If it's been a while, check status
+		num_jobs += 1
+		os.chdir(main_dir)
+		jobs.append(test_root + '/' + tid + "/results/" + name)
+
+		if int(time.time() - last_time) >= 10:
+			jobs = print_status(jobs)
+		
+	return jobs
+
 # -----
 # Main execution
 # -----
 
 def main():
+	global init_time, last_time
+
 	# Define command-line arguments
-	parser = argparse.ArgumentParser(prog = "driver.py",						\
-			description = "Run WRF jobs to test system integrity.",				\
-			usage = "python %(prog)s [options]")
+	parser = argparse.ArgumentParser(prog = "driver.py",
+				description = "Run WRF jobs to test system integrity.")
 
 	for key, values in sorted(clo_dict.iteritems()):
-		parser.add_argument('-' + key[0], "--" + key, help = values[0],			\
-				default = values[1])
+		if len(values) == 1:
+			parser.add_argument(key, help = values[0])
+		else:
+			parser.add_argument('-' + key[0], "--" + key, help = values[0],
+					default = values[1])
 
-	# Handle optional arguments
-	args = parser.parse_args()
-
-	if not args.nodes:
-		args.nodes = args.queue
-
-	args.nodes += ".*ok"
+	# Handle arguments
+	args 		= parser.parse_args()
+	args.batch 	= args.batch.upper()
 
 	print "Beginning node test..."
-	print "   Case    = {}".format(args.case)
-	print "   Queue   = {}".format(args.queue)
-	print "   Nodes   = {}".format(args.nodes)
-	print "   Project = {}".format(args.project)
+	print "   Batch system  = {}".format(args.batch)
+	print "   Case          = {}".format(args.case)
+	print "   Queue         = {}".format(args.queue)
+	print "   Nodes         = {}".format(args.nodes)
+	print "   Project       = {}".format(args.project)
 
 	# Create directory for test
 	tid = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
@@ -135,36 +180,21 @@ def main():
 	print "\nCase created in: {}".format(test_root + '/' + tid)
 
 	# Get node pairs
-	nodes = get_nodes(args.nodes)
+	nodes = get_nodes(args.batch, args.nodes)
 	pairs = create_pairs(nodes)
 
 	print "Submitting {} jobs to scheduler...".format(len(pairs))
 
 	# Prepare pair run directories and submit jobs
-	jobs = init_tests(tid, pairs, args)
+	init_time	= time.time()
+	last_time	= init_time
+	jobs 		= init_tests(tid, pairs, args)
 
 	# Until jobs are done, keep checking results
-	num_total	= len(jobs)
-	num_active 	= num_total
-	init_time	= time.time()
-
-	print "Beginning logging. Please wait..."
-
-	while num_active > 0:
+	while len(jobs) > 0:
 		time.sleep(10)
+		jobs = print_status(jobs)
 		
-		jobs 		= check_results(jobs)
-		num_active 	= len(jobs)
-		pct_done	= 100.0 * (num_total - num_active) / num_total
-
-		tmp = os.system("clear")
-		print "Time passed - {} seconds".format(int(time.time() - init_time))
-		print "   Total number of jobs  = {}".format(num_total)
-		print "   Number of active jobs = {}".format(num_active)
-		print "   Percent complete      = {}".format(pct_done)
-		print "\nEvent Log:"
-		print '\n'.join(log)
-
 	print "\nNodetest complete!"
 	print "Results in: {}".format(test_root + '/' + tid + "/results")
 

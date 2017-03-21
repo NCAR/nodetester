@@ -1,24 +1,24 @@
 #!/bin/bash
 #
-#	run_yellowstone.sh
+#	run_cheyenne.sh
 #	Author:		Brian Vanderwende
-#	Updated:	21 March 2017
+#	Revised:	21 March 2017
 #
 #	This script prepares the environment for node tests and then
 #	executes the test driver.
 
 # Test configuration
-CASE=def_ys
+CASE=def_ch
 QUEUE=special
-NODES=ys[0-6]
 PROJ=SCSG0001
 COMPVER=intel/16.0.3
-NCVER=netcdf/4.4.1
-PYVER=python/2.7.7
+MPIVER=mpt/2.15f
+NCVER=netcdf/4.4.1.1
+PYVER=python/2.7.13
 
 # Prepare module environment
 module purge
-module lo ncarenv ncarbinlibs $COMPVER $NCVER $PYVER
+module lo ncarenv $COMPVER $NCVER $MPIVER $PYVER
 
 # Run driver script
-python driver.py LSF -c $CASE -q $QUEUE -n $NODES -p $PROJ
+python driver.py PBS -c $CASE -q $QUEUE -p $PROJ
