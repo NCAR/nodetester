@@ -15,6 +15,7 @@ PROJ=SCSG0001
 PYVER=python/2.7.7
 
 # Prepare module environment
+source /glade/apps/opt/lmod/lmod/localinit/localinit.sh
 module reset
 module lo $PYVER
 

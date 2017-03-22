@@ -17,6 +17,7 @@ NCVER=netcdf/4.4.1
 PYVER=python/2.7.7
 
 # Prepare module environment
+source /glade/apps/opt/lmod/lmod/localinit/localinit.sh
 module purge
 module lo ncarenv ncarbinlibs $COMPVER $NCVER $PYVER
 

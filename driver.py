@@ -24,11 +24,6 @@ test_root = "/glade/scratch/" + os.environ["USER"] + "/nodetests"
 # -----
 
 cp 			= cp.bake("-r")
-log 		= []
-init_time	= 0
-last_time	= 0
-num_jobs	= 0
-total_jobs	= 0
 clo_dict	= {	"batch"		: ["batch system to use (PBS or LSF)"],
 				"project"	: ["project allocation to use for jobs","SCSG0001"],
 				"queue"		: ["queue on which tests are submitted","caldera"],
@@ -79,7 +74,7 @@ def create_pairs(nodes):
 
 	return pairs
 
-def check_results(jobs):
+def check_results(jobs, log):
 	# Check for completed jobs and log errors
 	for n in xrange(len(jobs)):
 		if os.path.exists(jobs[n]):
@@ -94,29 +89,27 @@ def check_results(jobs):
 	# Remove non-active jobs
 	jobs = [n for n in jobs if n != 'r']
 
-	return jobs
+	return jobs, log
 
-def print_status(jobs):
-	global num_jobs, total_jobs, last_time, init_time, log
-	jobs 		= check_results(jobs)
-	num_active 	= len(jobs)
-	pct_submit	= 100.0 * num_jobs / total_jobs
-	pct_done	= 100.0 * (num_jobs - num_active) / total_jobs
-	last_time	= time.time()
+def print_status(jobs, log, stats):
+	jobs, log			= check_results(jobs, log)
+	stats["num_active"] = len(jobs)
+	pct_submit			= 100.0 * num_jobs / total_jobs
+	pct_done			= 100.0 * (num_jobs - num_active) / total_jobs
+	stats["last_time"]	= time.time()
 	
 	tmp = os.system("clear")
-	print "Time passed - {} seconds".format(int(last_time - init_time))
-	print "   Total jobs submitted          = {}".format(num_jobs)
-	print "   Number of queued/running jobs = {}".format(num_active)
+	print "Time passed - {} seconds".format(int(stats["last_time"] - stats["init_time"]))
+	print "   Total jobs submitted          = {}".format(stats["num_jobs"])
+	print "   Number of queued/running jobs = {}".format(stats["num_active"])
 	print "   Percent submitted of total    = {:4.1f}%".format(pct_submit)
 	print "   Percent finished of total     = {:4.1f}%".format(pct_done)
 	print "\nEvent Log:"
 	print '\n'.join(log)
 
-	return jobs
+	return jobs, log
 
-def init_tests(tid, pairs, args):
-	global num_jobs, last_time
+def init_tests(tid, pairs, args, log, stats):
 	jobs 		= []
 	main_dir	= os.getcwd()
 
@@ -138,22 +131,20 @@ def init_tests(tid, pairs, args):
 			qsub("-l", sh, "-A",  args.project, "-q", args.queue, nodes[2] + "/runwrf.job")
 		
 		# If it's been a while, check status
-		num_jobs += 1
+		stats["num_jobs"] += 1
 		os.chdir(main_dir)
 		jobs.append(test_root + '/' + tid + "/results/" + name)
 
-		if int(time.time() - last_time) >= 10:
-			jobs = print_status(jobs)
+		if int(time.time() - stats["last_time"]) >= 10:
+			jobs, log = print_status(jobs, log, stats)
 		
-	return jobs
+	return jobs, log
 
 # -----
 # Main execution
 # -----
 
 def main():
-	global init_time, last_time, total_jobs
-
 	# Define command-line arguments
 	parser = argparse.ArgumentParser(prog = "driver.py",
 				description = "Run WRF jobs to test system integrity.")
@@ -189,15 +180,21 @@ def main():
 
 	print "Submitting {} jobs to scheduler...".format(total_jobs)
 
-	# Prepare pair run directories and submit jobs
-	init_time	= time.time()
-	last_time	= init_time
-	jobs 		= init_tests(tid, pairs, args)
+	# Test logging
+	log		= []
+	stats 	= { init_time 	: time.time(),
+				num_jobs	: 0,
+				num_active	: 0,
+				total_jobs	: len(pairs) }
+	stats["last_time"] = stats["init_time"]
+
+	# Submit testing jobs
+	jobs = init_tests(tid, pairs, args, log, stats)
 
 	# Until jobs are done, keep checking results
-	while len(jobs) > 0:
+	while stats["num_active"] > 0:
 		time.sleep(10)
-		jobs = print_status(jobs)
+		jobs = print_status(jobs, log, stats)
 		
 	print "\nNodetest complete!"
 	print "Results in: {}".format(test_root + '/' + tid + "/results")
