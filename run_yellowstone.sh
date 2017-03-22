@@ -18,8 +18,8 @@ PYVER=python/2.7.7
 
 # Prepare module environment
 source /glade/apps/opt/lmod/lmod/localinit/localinit.sh
-module purge
-module lo ncarenv ncarbinlibs $COMPVER $NCVER $PYVER
+module purge >& /dev/null
+module lo ncarenv ncarbinlibs $COMPVER $NCVER $PYVER >& /dev/null
 
 # Run driver script
 python driver.py LSF -c $CASE -q $QUEUE -n $NODES -p $PROJ

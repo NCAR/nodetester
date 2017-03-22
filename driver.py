@@ -94,17 +94,20 @@ def check_results(jobs, log):
 def print_status(jobs, log, stats):
 	jobs, log			= check_results(jobs, log)
 	stats["num_active"] = len(jobs)
-	pct_submit			= 100.0 * num_jobs / total_jobs
-	pct_done			= 100.0 * (num_jobs - num_active) / total_jobs
+	pct_submit			= 100.0 * stats["num_jobs"] / stats["total_jobs"]
+	num_done			= stats["num_jobs"] - stats["num_active"]
+	pct_done			= 100.0 * num_done / stats["total_jobs"]
 	stats["last_time"]	= time.time()
 	
 	tmp = os.system("clear")
 	print "Time passed - {} seconds".format(int(stats["last_time"] - stats["init_time"]))
-	print "   Total jobs submitted          = {}".format(stats["num_jobs"])
+	print "   Total number of jobs in test  = {}".format(stats["total_jobs"])
+	print "   Number of jobs submitted      = {}".format(stats["num_jobs"])
 	print "   Number of queued/running jobs = {}".format(stats["num_active"])
-	print "   Percent submitted of total    = {:4.1f}%".format(pct_submit)
-	print "   Percent finished of total     = {:4.1f}%".format(pct_done)
-	print "\nEvent Log:"
+	print "   Number of finished jobs       = {}\n".format(num_done)
+	print "   Percent submitted of total    = {:.1f}%".format(pct_submit)
+	print "   Percent finished of total     = {:.1f}%\n".format(pct_done)
+	print "Event Log:"
 	print '\n'.join(log)
 
 	return jobs, log
@@ -182,19 +185,22 @@ def main():
 
 	# Test logging
 	log		= []
-	stats 	= { init_time 	: time.time(),
-				num_jobs	: 0,
-				num_active	: 0,
-				total_jobs	: len(pairs) }
+	stats 	= { "init_time" 	: time.time(),
+				"num_jobs"		: 0,
+				"num_active"	: 0,
+				"total_jobs"	: len(pairs) }
 	stats["last_time"] = stats["init_time"]
 
 	# Submit testing jobs
-	jobs = init_tests(tid, pairs, args, log, stats)
+	jobs, log  = init_tests(tid, pairs, args, log, stats)
 
 	# Until jobs are done, keep checking results
-	while stats["num_active"] > 0:
+	keep_going = True
+
+	while keep_going:
 		time.sleep(10)
-		jobs = print_status(jobs, log, stats)
+		jobs, log	= print_status(jobs, log, stats)
+		keep_going 	= stats["num_active"] > 0
 		
 	print "\nNodetest complete!"
 	print "Results in: {}".format(test_root + '/' + tid + "/results")

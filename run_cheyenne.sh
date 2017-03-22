@@ -18,8 +18,8 @@ PYVER=python/2.7.13
 
 # Prepare module environment
 source /glade/u/apps/ch/modulefiles/default/localinit/localinit.sh
-module purge
-module lo ncarenv $COMPVER $NCVER $MPIVER $PYVER
+module purge >& /dev/null
+module lo ncarenv $COMPVER $NCVER $MPIVER $PYVER >& /dev/null
 
 # Run driver script
 python driver.py PBS -c $CASE -q $QUEUE -p $PROJ
