@@ -34,8 +34,10 @@ clo_dict	= {	"batch"		: ["batch system to use (PBS or LSF)"],
 # Local routines
 # -----
 
-def parse_nodes():
-    return ""
+def parse_nodes(key):
+	nodes = grep(key, _in = grep("-v","^    ", _in = host_list())).splitlines()
+	nodes = [node.split()[0] for node in nodes]
+	return nodes
 
 def get_nodes(batch, key):
 	# Execute and store node/host names
@@ -49,10 +51,9 @@ def get_nodes(batch, key):
 	else:
 		print "Error: {} is not a known batch system. Exiting ...".format(batch)
 		sys.exit(1)
-		
-	nodes = grep(key, _in = grep("-v","^    ", _in = host_list())).splitlines()
-	nodes = [node.split()[0] for node in nodes]
 	
+	nodes = parse_nodes(key)
+
 	# If PBS, need to find and remove dead hosts
 	if batch == "PBS":
 		dead_nodes 	= dead_hosts().splitlines()
