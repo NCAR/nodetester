@@ -40,15 +40,9 @@ ys2667-ib          ok              -     32     16      0      0      0     16
 ys2869-ib          ok              -     32     16      0      0      0     16
 """)
 	result = driver.parse_nodes(".*ok", my_hosts.produce_hosts)
-	assert result == ["ys0146-ib", "ys0214-ib", "ys0216-ib"
-#ys0436-ib
-#ys0438-ib
-#ys0439-ib
-#ys0440-ib
-#ys0442-ib
-#ys2667-ib
-#ys2869-ib
-]
+	assert result == ["ys0146-ib", "ys0214-ib", "ys0216-ib", "ys0436-ib",
+			"ys0438-ib", "ys0439-ib", "ys0440-ib", "ys0442-ib",
+			"ys2667-ib", "ys2869-ib"]
 
 def test_parse_PBS_nodes():
 	my_hosts = HostProducer(
