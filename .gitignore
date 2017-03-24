@@ -1,3 +1,5 @@
 def_*
 case_setup
 test_??
+.cache/
+__pycache__/
