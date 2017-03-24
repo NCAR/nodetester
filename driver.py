@@ -34,6 +34,9 @@ clo_dict	= {	"batch"		: ["batch system to use (PBS or LSF)"],
 # Local routines
 # -----
 
+def parse_nodes():
+    return ""
+
 def get_nodes(batch, key):
 	# Execute and store node/host names
 	if batch == "LSF":
