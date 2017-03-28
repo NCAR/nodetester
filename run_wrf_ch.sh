@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-#	run_cheyenne.sh
+#	run_wrf_ch.sh
 #	Author:		Brian Vanderwende
 #	Revised:	21 March 2017
 #
@@ -8,7 +8,7 @@
 #	executes the test driver.
 
 # Test configuration
-CASE=def_ch
+CASE=case_wrf_ch
 QUEUE=special
 PROJ=SCSG0001
 COMPVER=intel/16.0.3
@@ -22,4 +22,4 @@ module purge >& /dev/null
 module lo ncarenv $COMPVER $NCVER $MPIVER $PYVER >& /dev/null
 
 # Run driver script
-python driver.py PBS -c $CASE -q $QUEUE -p $PROJ
+python driver.py PBS -c $CASE -q $QUEUE -p $PROJ --force

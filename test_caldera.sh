@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-#	run_tests.sh
+#	test_caldera.sh
 #	Author:		Brian Vanderwende
 #	Revised:	21 August 2016
 #

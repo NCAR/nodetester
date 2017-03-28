@@ -1,6 +1,4 @@
-def_*
-case_setup
-test_??
+case_*
 .cache/
 __pycache__/
 *.py.swp

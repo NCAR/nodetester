@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-#	run_yellowstone.sh
+#	run_wrf_ys.sh
 #	Author:		Brian Vanderwende
 #	Updated:	21 March 2017
 #
@@ -8,7 +8,7 @@
 #	executes the test driver.
 
 # Test configuration
-CASE=def_ys
+CASE=case_wrf_ys
 QUEUE=special
 NODES=ys[0-6]
 PROJ=SCSG0001

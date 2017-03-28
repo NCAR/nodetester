@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-#	run_cheyenne.sh
+#	test_cheyenne.sh
 #	Author:		Brian Vanderwende
 #	Revised:	21 August 2016
 #
