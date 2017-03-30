@@ -8,9 +8,9 @@
 #	executes the test driver.
 
 # Test configuration
-CASE=test_ca
+CASE=cases/test_ca
 QUEUE=caldera
-NODES=caldera
+NODES=caldera0[3-9]-ib
 PROJ=SCSG0001
 COMPVER=intel/16.0.3
 NCVER=netcdf/4.4.1
@@ -22,4 +22,4 @@ module purge >& /dev/null
 module lo ncarenv ncarbinlibs $COMPVER $NCVER $PYVER >& /dev/null
 
 # Run driver script
-python driver.py LSF -c $CASE -q $QUEUE -n $NODES -p $PROJ
+python driver.py LSF -c $CASE -q $QUEUE -n $NODES -p $PROJ --force

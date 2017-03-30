@@ -1,4 +1,4 @@
-case_*
+cases
 .cache/
 __pycache__/
 *.py.swp

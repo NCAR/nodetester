@@ -8,7 +8,7 @@
 #	executes the test driver.
 
 # Test configuration
-CASE=case_wrf_ch
+CASE=cases/wrf_ch
 QUEUE=special
 PROJ=SCSG0001
 COMPVER=intel/16.0.3
