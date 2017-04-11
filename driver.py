@@ -194,10 +194,11 @@ def force_run(jobs, log):
 				time.sleep(10)
 				print_status(jobs, log)
 		
-		qrun("-H", "({})".format(")+(".join(job.nodes)), job.jobid)
+		if not job.done:
+			qrun("-H", "({})".format(")+(".join(job.nodes)), job.jobid)
 
-		if int(time.time() - log["last_time"]) >= 10:
-			print_status(jobs, log)
+			if int(time.time() - log["last_time"]) >= 10:
+				print_status(jobs, log)
 
 # -----
 # Main execution
