@@ -18,7 +18,7 @@ import sys, os, time, argparse
 # -----
 
 username	= os.environ["USER"]
-test_root 	= "/glade/scratch/" + username + "/nodetests"
+def_path 	= "/glade/scratch/" + username + "/nodetests"
 
 # -----
 # Global variables
@@ -26,30 +26,32 @@ test_root 	= "/glade/scratch/" + username + "/nodetests"
 
 cp 			= cp.bake("-r")
 clo_dict	= {	"batch"		: ["batch system to use (PBS or LSF)"],
-				"project"	: ["project allocation to use for jobs","SCSG0001"],
+				"account"	: ["project account to use for jobs","SCSG0001"],
 				"queue"		: ["queue on which tests are submitted","caldera"],
 				"nodes"		: ["search string for nodes",'[a-z].*'],
 				"case"		: ["name of test case to execute","test_ca"],
-				"force"		: ["force jobs to run on reserved nodes (PBS only)","False"]}
+				"force"		: ["force jobs to run on reserved nodes (PBS only)","False"],
+				"path"		: ["path where job output is written", def_path],
+				"limit"		: ["max number of jobs to start per second", 10]}
 
 # -----
 # Local data structures
 # -----
 
 class job(object):
-	def __init__(self, nodes = ['',''], rstat = False, wait = False):
+	def __init__(self, nodes = ['',''], resv = False, wait = False):
 		self.name   = nodes[0].split('-')[0] + '-' + nodes[1].split('-')[0]
 		self.jobid 	= ''
 		self.nodes 	= nodes
 		self.path	= self.name
 		self.result = self.name
-		self.rstat	= rstat
-		self.done	= False
+		self.resv	= resv
+		self.status	= "ready"
 		self.wait	= wait
 	
-	def set_rootdir(self, root_path, tid):
-		self.path 	= '/'.join((root_path, tid, self.path))
-		self.result	= '/'.join((root_path, tid, "results", self.result))
+	def set_rootdir(self, root_path):
+		self.path 	= '/'.join((root_path, self.path))
+		self.result	= '/'.join((root_path, "results", self.result))
 	
 	def __eq__(self, other):
 		return self.jobid == other.jobid
@@ -152,12 +154,12 @@ def print_status(jobs, log):
 	print "Event Log:"
 	print '\n'.join(log["errors"])
 
-def submit_jobs(tid, jobs, args, log):
+def submit_jobs(jobs, args, log):
 	main_dir = os.getcwd()
 
 	for job in jobs:
 		# Create job directory
-		job.set_rootdir(test_root, tid)
+		job.set_rootdir(args.path)
 		cp(args.case, job.path)
 		os.chdir(job.path)
 
@@ -165,13 +167,13 @@ def submit_jobs(tid, jobs, args, log):
 			from sh import bsub
 			with open(job.path + "/run_case.lsf", 'r') as jf:
 				temp 		= bsub(_in = jf, m = ' '.join(job.nodes),
-								P = args.project, q = args.queue)
+								P = args.account, q = args.queue)
 				job.jobid	= temp.split('<')[1].split('>')[0]
 		elif args.batch == "PBS":
 			from sh import qsub
 			sh 			= "select=" + '+'.join(["ncpus=36:mpiprocs=36:host={}".format(nid) 
 							for nid in job.nodes])
-			temp 		= qsub("-l", sh, "-A",  args.project, "-q", args.queue,
+			temp 		= qsub("-l", sh, "-A",  args.account, "-q", args.queue,
 							job.path + "/run_case.pbs")
 			job.jobid	= temp.split('.')[0]
 		
@@ -228,13 +230,14 @@ def main():
 	print "   Case          = {}".format(args.case)
 	print "   Queue         = {}".format(args.queue)
 	print "   Nodes         = {}".format(args.nodes)
-	print "   Project       = {}".format(args.project)
+	print "   Account       = {}".format(args.account)
+	print "   Run rate		= {} jobs per second".format(args.limit)
 
 	# Create directory for test
-	tid = datetime.now().strftime("%Y-%m-%d_%H%M%S")
-	os.makedirs(test_root + '/' + tid + "/results")
+	args.path += '/' + datetime.now().strftime("%Y-%m-%d_%H%M%S")
+	os.makedirs(args.path + "/results")
 
-	print "\nCase created in: {}".format(test_root + '/' + tid)
+	print "\nCase created in: {}".format(args.path)
 
 	# Get node pairs
 	nodes, rstat	= get_nodes(args.batch, args.queue, args.nodes)
@@ -253,7 +256,7 @@ def main():
 	log["last_time"] = log["init_time"]
 
 	# Submit testing jobs and force them to run if requested
-	submit_jobs(tid, jobs, args, log)
+	submit_jobs(jobs, args, log)
 
 	if args.force:
 		if args.batch == "PBS":
@@ -281,7 +284,7 @@ def main():
 		
 	print "\n   Failure rate = {:.1f}%".format(100.0 * log["num_errors"] / log["num_jobs"])
 	print "\nNodetest complete!"
-	print "Results in: {}".format(test_root + '/' + tid + "/results")
+	print "Results in: {}".format(args.path + "/results")
 
 # Call the main function
 if __name__ == "__main__":
