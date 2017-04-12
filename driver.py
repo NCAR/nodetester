@@ -92,7 +92,7 @@ def get_nodes(batch, queue, key):
 	# Get raw node information from batch system
 	if batch == "LSF":
 		from sh import bhosts, brsvs
-		node_data 		= grep("-w", '^' + key + " .*ok", _in = bhosts()).splitlines()
+		node_data 		= grep("-w", '^' + key + ".* ok", _in = bhosts()).splitlines()
 		nodes, rstat 	= parse_nodes_lsf(node_data, brsvs())
 	elif batch == "PBS":
 		from sh import pbsnodes
