@@ -99,10 +99,11 @@ def parse_nodes_pbs(queue, node_data):
 			node 	= [item]
 			is_resv = [False]
 		elif node:
-			if "resv" in item and not resv:
+			if "state" in item:
+				usable = "free" in item or "resv" in item
+			elif "resv" in item and not resv:
 				is_resv = [True]
-
-			if queue in item:
+			elif queue in item and usable:
 				nodes 	+= 	node
 				rstat	+= 	is_resv
 				node	=	None
@@ -119,7 +120,7 @@ def get_nodes(batch, queue, key):
 		nodes, rstat 	= parse_nodes_lsf(node_data, brsvs())
 	elif batch == "PBS":
 		from sh import pbsnodes
-		node_data 		= grep("-w", "-E", '^' + key + "|Qlist =|resv =",
+		node_data 		= grep("-w", "-E", '^' + key + "|Qlist =|resv =|state =",
 							_in = pbsnodes("-a")).splitlines()
 		nodes, rstat	= parse_nodes_pbs(queue, node_data)
 	else:
