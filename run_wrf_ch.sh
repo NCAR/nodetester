@@ -8,8 +8,9 @@
 #	executes the test driver.
 
 # Test configuration
+OUTDIR=/glade/scratch/${USER}/nodetests/wrf_ch
 CASE=cases/wrf_ch
-QUEUE=special
+QUEUE=system
 PROJ=SCSG0001
 COMPVER=intel/16.0.3
 MPIVER=mpt/2.15f
@@ -22,4 +23,4 @@ module purge >& /dev/null
 module lo ncarenv $COMPVER $NCVER $MPIVER $PYVER >& /dev/null
 
 # Run driver script
-python driver.py PBS -c $CASE -q $QUEUE -p $PROJ --force
+python driver.py PBS -c $CASE -q $QUEUE -a $PROJ -p $OUTDIR --force --verbose

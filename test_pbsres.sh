@@ -1,15 +1,16 @@
 #!/bin/bash
 #
-#	test_cheyenne.sh
+#	test_pbsres.sh
 #	Author:		Brian Vanderwende
-#	Revised:	21 August 2016
+#	Revised:	18 Apr 2017
 #
 #	This script prepares the environment for node tests and then
 #	executes the test driver.
 
-# Test configuration (create a reservation and use that
+# Test configuration (create a reservation and use that)
+OUTDIR=/glade/scratch/${USER}/nodetests/pbsres
 CASE=cases/test_ch
-QUEUE=R1017736
+QUEUE=R1314332
 PROJ=SCSG0001
 COMPVER=intel/16.0.3
 MPIVER=mpt/2.15f
@@ -22,4 +23,4 @@ module purge >& /dev/null
 module lo ncarenv $COMPVER $NCVER $MPIVER $PYVER >& /dev/null
 
 # Run driver script
-python driver.py PBS -c $CASE -q $QUEUE -p $PROJ
+python driver.py PBS -c $CASE -q $QUEUE -a $PROJ -p $OUTDIR --verbose --force

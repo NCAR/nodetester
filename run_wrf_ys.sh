@@ -8,9 +8,10 @@
 #	executes the test driver.
 
 # Test configuration
+OUTDIR=/glade/scratch/${USER}/nodetests/wrf_ys
 CASE=cases/wrf_ys
 QUEUE=special
-NODES=ys[0-6]
+NODES=ys[0-6].*
 PROJ=SCSG0001
 COMPVER=intel/16.0.3
 NCVER=netcdf/4.4.1
@@ -22,4 +23,4 @@ module purge >& /dev/null
 module lo ncarenv ncarbinlibs $COMPVER $NCVER $PYVER >& /dev/null
 
 # Run driver script
-python driver.py LSF -c $CASE -q $QUEUE -n $NODES -p $PROJ
+python driver.py LSF -c $CASE -q $QUEUE -n $NODES -a $PROJ -p $OUTDIR --verbose

@@ -8,9 +8,10 @@
 #	executes the test driver.
 
 # Test configuration (create a reservation and use that
+OUTDIR=/glade/scratch/${USER}/nodetests/chtest
 CASE=cases/test_ch
 QUEUE=regular
-NODES=r2i0n[5-8]
+NODES=r2i6n[2-4]
 PROJ=SCSG0001
 COMPVER=intel/16.0.3
 MPIVER=mpt/2.15f
@@ -23,4 +24,4 @@ module purge >& /dev/null
 module lo ncarenv $COMPVER $NCVER $MPIVER $PYVER >& /dev/null
 
 # Run driver script
-python driver.py PBS -c $CASE -q $QUEUE -p $PROJ -n $NODES --force
+python driver.py PBS -c $CASE -q $QUEUE -a $PROJ -n $NODES -p $OUTDIR --verbose --force
