@@ -1,7 +1,7 @@
 # -----
 #	driver.py
 #	Author:		Brian Vanderwende
-#	Revised:	27 March, 2017
+#	Revised:	20 June, 2017
 #
 #	This script queries available nodes, assigns node pairs, and runs a job
 #	on those pairs to test the integrity of the nodes and interconnects. The
@@ -9,7 +9,7 @@
 #	on completion percentages.
 # -----
 
-from sh import grep, cp
+from sh import grep, cp, TimeoutException
 from datetime import datetime
 import sys, os, time, argparse 
 
@@ -235,7 +235,7 @@ def force_run(jobs, log):
 	log_message(1, ["Entering force_run to remove hold from PBS jobs"])
 
 	# Use qrun to force jobs to run if on reserved nodes
-	from sh import qrun
+	from sh import qrun, qdel
 
 	for job in jobs:
 		# Need to make sure last job doesn't clobber first job 
@@ -245,9 +245,13 @@ def force_run(jobs, log):
 				time.sleep(10)
 				print_status(jobs, log)
 		
-		qrun("-H", "({})".format(")+(".join(job.nodes)), job.jobid)
-
-		log_message(1, ["Hold released on job {}".format(job.name)])
+		try:
+			qrun("-H", "({})".format(")+(".join(job.nodes)), job.jobid, _timeout = 5)
+			log_message(1, ["Hold released on job {}".format(job.name)])
+		except TimeoutException:
+			log_message(1, ["Could not release job {}, deleting instead".format(job.name)])
+			log["errors"].append("   qrun failed     - " + job.name)
+			log["num_errors"] += 1
 
 		if int(time.time() - log["last_time"]) >= 10:
 			print_status(jobs, log)

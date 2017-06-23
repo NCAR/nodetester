@@ -10,7 +10,7 @@
 # Test configuration (create a reservation and use that)
 OUTDIR=/glade/scratch/${USER}/nodetests/pbsres
 CASE=cases/test_ch
-QUEUE=R1314332
+QUEUE=R1342433
 PROJ=SCSG0001
 COMPVER=intel/16.0.3
 MPIVER=mpt/2.15f
