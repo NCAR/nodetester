@@ -285,7 +285,7 @@ def main():
 	# Handle arguments
 	args 		= parser.parse_args()
 	args.batch 	= args.batch.upper()
-	timeout		= int(args.timeout())
+	timeout		= int(args.timeout)
 
 	# Create directory for test
 	args.path = os.path.join(args.path, datetime.now().strftime("%Y-%m-%d_%H%M%S"))
@@ -310,7 +310,7 @@ def main():
 	log_message(0, ["","Case created in: {}".format(args.path)])
 
 	# Get node pairs
-	nodes, rstat	= get_nodes(args.batch, args.queue, args.nodes, timeout)
+	nodes, rstat	= get_nodes(args.batch, args.queue, args.nodes)
 	jobs 			= create_jobs(nodes, rstat)
 	total_jobs		= len(jobs)
 
