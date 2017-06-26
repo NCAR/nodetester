@@ -32,7 +32,8 @@ clo_dict	= {	"batch"		: ["batch system to use (PBS or LSF)"],
 				"case"		: ["name of test case to execute","test_ca"],
 				"force"		: ["force jobs to run on reserved nodes (PBS only)","False"],
 				"path"		: ["path where job output is written",def_path],
-				"verbose"	: ["write more messages to logging file","False"]}
+				"verbose"	: ["write more messages to logging file","False"],
+				"timeout"	: ["number of seconds to wait on scheduler commands","5"]}
 
 verbose		= False
 log_file	= "driver.log"
@@ -189,7 +190,7 @@ def print_status(jobs, log):
 	message.extend(log["errors"])
 	log_message(0, message)
 
-def submit_jobs(jobs, args, log):
+def submit_jobs(jobs, args, log, timeout):
 	log_message(1, ["Entering submit_jobs to schedule node tests"])
 	main_dir = os.getcwd()
 
@@ -199,30 +200,36 @@ def submit_jobs(jobs, args, log):
 		cp(args.case, job.path)
 		os.chdir(job.path)
 
-		if args.batch == "LSF":
-			from sh import bsub
-			with open(os.path.join(job.path, "run_case.lsf"), 'r') as jf:
-				temp 		= bsub(_in = jf, m = ' '.join(job.nodes),
-								P = args.account, q = args.queue)
-				job.jobid	= temp.split('<')[1].split('>')[0]
-				log_message(1, ["Job {} submitted with bsub".format(job.name)])
-		elif args.batch == "PBS":
-			from sh import qsub
-			sel_hosts	= "select=" + '+'.join(["ncpus=36:mpiprocs=36:host={}".format(nid) 
-							for nid in job.nodes])
+		try:
+			if args.batch == "LSF":
+				from sh import bsub
+				with open(os.path.join(job.path, "run_case.lsf"), 'r') as jf:
+					temp 		= bsub(_in = jf, m = ' '.join(job.nodes),
+									P = args.account, q = args.queue, _timeout = timeout)
+					job.jobid	= temp.split('<')[1].split('>')[0]
+					log_message(1, ["Job {} submitted with bsub".format(job.name)])
+			elif args.batch == "PBS":
+				from sh import qsub
+				sel_hosts	= "select=" + '+'.join(["ncpus=36:mpiprocs=36:host={}".format(nid) 
+								for nid in job.nodes])
 
-			if args.force:
-				temp	= qsub("-l", sel_hosts, "-A",  args.account, "-q", args.queue,
-							"-h", os.path.join(job.path, "run_case.pbs"))
-			else:
-				temp	= qsub("-l", sel_hosts, "-A",  args.account, "-q", args.queue,
-							os.path.join(job.path, "run_case.pbs"))
+				if args.force:
+					temp	= qsub("-l", sel_hosts, "-A",  args.account, "-q", args.queue,
+								"-h", os.path.join(job.path, "run_case.pbs"), _timeout = timeout)
+				else:
+					temp	= qsub("-l", sel_hosts, "-A",  args.account, "-q", args.queue,
+								os.path.join(job.path, "run_case.pbs"), _timeout = timeout)
+				
+				job.jobid	= temp.split('.')[0]
+				log_message(1, ["Job {} submitted with qsub (hold = {})".format(job.name, args.force)])
 			
-			job.jobid	= temp.split('.')[0]
-			log_message(1, ["Job {} submitted with qsub (hold = {})".format(job.name, args.force)])
+			log["num_active"] += 1
+		except TimeoutException:
+			log_message(1, ["Could not submit job {}, skipping".format(job.name)])
+			log["errors"].append("   submit failed   - " + job.name)
+			log["num_errors"] += 1
 		
-		log["num_jobs"] 	+= 1
-		log["num_active"]	+= 1
+		log["num_jobs"] += 1
 		os.chdir(main_dir)
 
 		# If it's been a while, check status
@@ -231,7 +238,7 @@ def submit_jobs(jobs, args, log):
 
 		log_message(1, ["Finished submitting {} jobs".format(log["num_jobs"])])
 
-def force_run(jobs, log):
+def force_run(jobs, log, timeout):
 	log_message(1, ["Entering force_run to remove hold from PBS jobs"])
 
 	# Use qrun to force jobs to run if on reserved nodes
@@ -246,7 +253,7 @@ def force_run(jobs, log):
 				print_status(jobs, log)
 		
 		try:
-			qrun("-H", "({})".format(")+(".join(job.nodes)), job.jobid, _timeout = 5)
+			qrun("-H", "({})".format(")+(".join(job.nodes)), job.jobid, _timeout = timeout)
 			log_message(1, ["Hold released on job {}".format(job.name)])
 		except TimeoutException:
 			log_message(1, ["Could not release job {}, deleting instead".format(job.name)])
@@ -278,6 +285,7 @@ def main():
 	# Handle arguments
 	args 		= parser.parse_args()
 	args.batch 	= args.batch.upper()
+	timeout		= int(args.timeout())
 
 	# Create directory for test
 	args.path = os.path.join(args.path, datetime.now().strftime("%Y-%m-%d_%H%M%S"))
@@ -302,7 +310,7 @@ def main():
 	log_message(0, ["","Case created in: {}".format(args.path)])
 
 	# Get node pairs
-	nodes, rstat	= get_nodes(args.batch, args.queue, args.nodes)
+	nodes, rstat	= get_nodes(args.batch, args.queue, args.nodes, timeout)
 	jobs 			= create_jobs(nodes, rstat)
 	total_jobs		= len(jobs)
 
@@ -338,10 +346,10 @@ def main():
 	log["last_time"] = log["init_time"]
 
 	# Submit testing jobs and force them to run if requested
-	submit_jobs(jobs, args, log)
+	submit_jobs(jobs, args, log, timeout)
 
 	if args.force:
-		force_run(jobs, log)
+		force_run(jobs, log, timeout)
 
 	# Until jobs are done, keep checking results
 	keep_going = True
