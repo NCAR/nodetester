@@ -8,19 +8,10 @@
 #	executes the test driver.
 
 # Test configuration
-OUTDIR=/glade/scratch/${USER}/nodetests/wrf_ch
-CASE=cases/wrf_ch
-QUEUE=system
-PROJ=SCSG0001
-COMPVER=intel/16.0.3
-MPIVER=mpt/2.15f
-NCVER=netcdf/4.4.1.1
-PYVER=python/2.7.13
+CASE=wrf_ch
+QUEUE=regular
+ACCOUNT=SCSG0001
+NODES=5
 
-# Prepare module environment
-source /glade/u/apps/ch/modulefiles/default/localinit/localinit.sh
-module purge >& /dev/null
-module lo ncarenv $COMPVER $NCVER $MPIVER $PYVER >& /dev/null
-
-# Run driver script
-python driver.py PBS -c $CASE -q $QUEUE -a $PROJ -p $OUTDIR --force --verbose
+# Run nodetester
+./nodetester -c $CASE -q $QUEUE -a $ACCOUNT -n $NODES

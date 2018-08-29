@@ -1,0 +1,170 @@
+#!/bin/bash
+#
+# ===== PBS NODETESTER
+#
+#   This script runs a bunch of tests on nodes using a supplied
+#   test case.
+#
+#	Maintainer: Brian Vanderwende
+#	Revised:    16:57, 29 Aug 2018
+
+# ===== PARSE ARGUMENTS
+
+# Set default values
+ACCOUNT=SCSG0001
+CASE=wrf_chey
+NUMNODES=-1
+TESTPATH=/glade/scratch/$USER/nodetests
+QUEUE=regular
+
+while [[ $# -gt 0 ]]; do
+    KEY="$1"
+
+    case $KEY in
+        --help)
+            usage
+            ;;
+        -a|--account)
+            ACCOUNT="$2"
+            ;;
+        -c|--case)
+            CASE="$2"
+            ;;
+        -n|--nodes)
+            NUMNODES="$2"
+            ;;
+        -p|--path)
+            TESTPATH="$2"
+            ;;
+        -q|--queue)
+            QUEUE="$2"
+            ;;
+    esac
+
+    shift; shift
+done
+
+# ===== BEGIN LOGGING
+
+export TESTPATH=${TESTPATH}/${CASE}/$(date +%FT%H%M%S)
+export LOGFILE=${TESTPATH}/main.log
+mkdir -p ${TESTPATH}/runs
+
+cat << EOF
+===========================
+  Starting PBS Nodetester 
+===========================
+
+EOF
+
+function logmsg {
+    echo "$(date +%FT%T) | $1" | tee -a $LOGFILE
+}
+
+logmsg "Initializing new node test..."
+
+# ===== CHECK AVAILABLE NODE COUNT
+
+# Get available nodes in specified queue
+FREENODES=$(pbsnodes -a | grep -wE "state = free|Qlist =.*regular" \
+            | grep -zoP "state.*\n.*regular" | grep -c free)
+
+if [[ $FREENODES -eq 0 ]]; then
+    logmsg "Fatal: no free nodes available in $QUEUE queue"
+    exit 1
+elif [[ $FREENODES -lt $NUMNODES ]]; then
+    logmsg "Warning: requested $NUMNODES nodes but only $FREENODES available in $QUEUE queue"
+    NUMNODES=$FREENODES
+elif [[ $NUMNODES -eq -1 ]]; then
+    NUMNODES=$FREENODES
+fi
+
+logmsg "Using $NUMNODES nodes in the $QUEUE queue"
+
+exit
+
+# ===== SUBMIT JOB
+
+logmsg "Running case $CASE in $TESTPATH"
+cp cases/submit_${CASE}.pbs ${TESTPATH}/driver.pbs
+
+# Clone case directory
+logmsg "Creating run directories..."
+
+NUMRUNS=$((NUMNODES / 2))
+for N in $(seq 1 $NUMRUNS); do
+    cp -Lr cases/${CASE} ${TESTPATH}/runs/R$N
+done
+
+logmsg "Submitting job with the following settings:"
+logmsg "   -A $ACCOUNT -q $QUEUE -l select=${NUMNODES}:ncpus=36:mpiprocs=36"
+
+cd $TESTPATH
+JOBID=$(qsub -A $ACCOUNT -q $QUEUE -l select=$NUMNODES:ncpus=36:mpiprocs=36 driver.pbs)
+echo -n "Submitted" > jobstat
+touch runs-all runs-pass runs-fail
+SECONDS=0
+
+# ===== MONITOR RUNS
+
+LOGSIZE=$(($(tput lines) - 17))
+
+function ttylog {
+clear
+cat << EOF
+$(date +%FT%T)
+
+PBS Job ID:         $JOBID
+Job Status:         $JOBSTAT
+Elapsed Time:       $TELAP
+
+Runs Submitted:     $NUMSUB / $NUMRUNS
+Runs Finished:      $((NUMPASS + NUMFAIL)) / $NUMRUNS
+
+Successful:         $NUMPASS
+Failed:             $NUMFAIL
+
+====================
+Recent log messages:
+====================
+
+EOF
+
+tail -n $LOGSIZE $LOGFILE
+}
+
+while [[ $JOBSTAT != "Finished" ]]; do
+    sleep 5
+    JOBSTAT=$(cat jobstat)
+    NUMSUB=$(wc -l < runs-all 2> /dev/null)
+    NUMPASS=$(wc -l < runs-pass 2> /dev/null)
+    NUMFAIL=$(wc -l < runs-fail 2> /dev/null)
+    TELAP=$(TZ=UTC0 printf '%(%M min %S sec)T\n' $SECONDS)
+
+    ttylog
+done
+
+# ===== OUTPUT FINAL REPORT
+
+cat >> $LOGFILE << EOF
+
+====================
+ Node test summary 
+====================
+
+PBS Job ID:         $JOBID
+Elapsed Time:       $TELAP
+
+Number of Runs:     $NUMRUNS
+Successful Runs:    $NUMPASS
+Failed Runs:        $NUMFAIL
+
+Average CPU Time:   $(awk '{x+=$0}END{printf "%.2f s\n", x/NR}' ${TESTPATH}/cpu.dat)
+Average I/O Time:   $(awk '{x+=$0}END{printf "%.2f s\n", x/NR}' ${TESTPATH}/io.dat)
+
+Stddev CPU Time:    $(awk '{x+=$0;y+=$0^2}END{printf "%.2f s\n", sqrt(y/NR-(x/NR)^2)}' ${TESTPATH}/cpu.dat)
+Stddev I/O Time:    $(awk '{x+=$0;y+=$0^2}END{printf "%.2f s\n", sqrt(y/NR-(x/NR)^2)}' ${TESTPATH}/io.dat)
+EOF
+
+clear
+tail -n 16 $LOGFILE
