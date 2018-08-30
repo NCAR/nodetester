@@ -1,5 +1,3 @@
-cases
-.cache/
-__pycache__/
-*.py.swp
-*.pyc
+setup
+*.sh
+cases/*/*/

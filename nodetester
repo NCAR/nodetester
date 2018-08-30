@@ -3,16 +3,35 @@
 # ===== PBS NODETESTER
 #
 #   This script runs a bunch of tests on nodes using a supplied
-#   test case.
+#   test case. Currently only supports pairwise tests.
 #
 #	Maintainer: Brian Vanderwende
-#	Revised:    16:57, 29 Aug 2018
+#	Revised:    22:40, 29 Aug 2018
 
 # ===== PARSE ARGUMENTS
 
+function usage {
+cat << EOF
+Usage: nodetester [options] CASE 
+
+This script will submit and monitor a selected node test using
+the PBS job scheduler. Currently only pairwise tests are
+supported.
+
+Options:
+    -a, --account   the account/project code to which jobs are charged
+    -f, --force     submit node tests even if requested nodes are not free
+    -h, --help      display this help and exit
+    -n, --nodes     the number of nodes to test (-1 for all available)
+    -p, --path      override the default path for test output
+    -q, --queue     the queue on which jobs are run
+EOF
+exit
+}
+
 # Set default values
 ACCOUNT=SCSG0001
-CASE=wrf_chey
+CASE=unknown
 NUMNODES=-1
 TESTPATH=/glade/scratch/$USER/nodetests
 QUEUE=regular
@@ -21,28 +40,37 @@ while [[ $# -gt 0 ]]; do
     KEY="$1"
 
     case $KEY in
-        --help)
+        -h|--help)
             usage
             ;;
         -a|--account)
             ACCOUNT="$2"
-            ;;
-        -c|--case)
-            CASE="$2"
+            shift; ;;
+        -f|--force)
+            FORCE=TRUE
             ;;
         -n|--nodes)
             NUMNODES="$2"
-            ;;
+            shift; ;;
         -p|--path)
             TESTPATH="$2"
-            ;;
+            shift; ;;
         -q|--queue)
             QUEUE="$2"
+            shift; ;;
+        *)
+            CASE=$KEY
             ;;
     esac
 
-    shift; shift
+    shift
 done
+
+# Make sure that the case exists
+if [[ ! -d cases/$CASE ]]; then
+    echo "Fatal: case $CASE not found; cannot start test"
+    exit 3
+fi
 
 # ===== BEGIN LOGGING
 
@@ -66,34 +94,47 @@ logmsg "Initializing new node test..."
 # ===== CHECK AVAILABLE NODE COUNT
 
 # Get available nodes in specified queue
-FREENODES=$(pbsnodes -a | grep -wE "state = free|Qlist =.*regular" \
-            | grep -zoP "state.*\n.*regular" | grep -c free)
+if [[ $FORCE = TRUE ]]; then
+    if [[ $NUMNODES -eq -1 ]]; then
+        NUMNODES=$(pbsnodes -a | grep -wE "Qlist =.*$QUEUE")
+    fi
 
-if [[ $FREENODES -eq 0 ]]; then
-    logmsg "Fatal: no free nodes available in $QUEUE queue"
-    exit 1
-elif [[ $FREENODES -lt $NUMNODES ]]; then
-    logmsg "Warning: requested $NUMNODES nodes but only $FREENODES available in $QUEUE queue"
-    NUMNODES=$FREENODES
-elif [[ $NUMNODES -eq -1 ]]; then
-    NUMNODES=$FREENODES
+    logmsg "Note: skipping free node check (force); long queue wait possible!"
+else
+    FREENODES=$(pbsnodes -a | grep -wE "state = free|Qlist =.*$QUEUE" \
+                | grep -zoP "state.*\n.*$QUEUE" | grep -c free)
+
+    if [[ $FREENODES -eq 0 ]]; then
+        logmsg "Fatal: no free nodes available in $QUEUE queue"
+        exit 1
+    elif [[ $FREENODES -lt $NUMNODES ]]; then
+        logmsg "Warning: requested $NUMNODES nodes but only $FREENODES available in $QUEUE queue"
+        NUMNODES=$FREENODES
+    elif [[ $NUMNODES -eq -1 ]]; then
+        NUMNODES=$FREENODES
+    fi
 fi
 
 logmsg "Using $NUMNODES nodes in the $QUEUE queue"
 
-exit
+NUMRUNS=$((NUMNODES % 2))
+
+if [[ $NUMRUNS -eq 1 ]]; then
+    export ODDNUM=TRUE
+    logmsg "Note: odd number of nodes selected; an extra test will be performed"
+fi
 
 # ===== SUBMIT JOB
 
 logmsg "Running case $CASE in $TESTPATH"
-cp cases/submit_${CASE}.pbs ${TESTPATH}/driver.pbs
+cp cases/${CASE}/driver.pbs cases/${CASE}/run_case ${TESTPATH}
 
 # Clone case directory
 logmsg "Creating run directories..."
 
-NUMRUNS=$((NUMNODES / 2))
+NUMRUNS=$((NUMNODES / 2 + NUMRUNS))
 for N in $(seq 1 $NUMRUNS); do
-    cp -Lr cases/${CASE} ${TESTPATH}/runs/R$N
+    cp -Lr cases/${CASE}/run_files ${TESTPATH}/runs/R$N
 done
 
 logmsg "Submitting job with the following settings:"

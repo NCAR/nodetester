@@ -1,0 +1,70 @@
+#!/bin/bash
+
+#PBS -N NT-WRF-CHEY
+#PBS -l walltime=3600
+#PBS -o driver.log
+#PBS -j oe
+
+echo "Running" > jobstat
+
+cat >> $LOGFILE << EOF
+$(date +%FT%T) | Using WRF pairwise node test
+$(date +%FT%T) | Starting tests...
+$(date +%FT%T) | Initializing environment...
+
+EOF
+
+# Set up case environment
+export OMP_NUM_THREADS=1
+ulimit -c unlimited
+ulimit -s unlimited
+ulimit -a >> $LOGFILE
+echo >> $LOGFILE
+
+module purge
+module load intel/16.0.3 mpt/2.15f netcdf/4.4.1.1
+
+# Get shuffled list of unique nodes
+readarray -t NODES <<< "$(uniq $PBS_NODEFILE | shuf)"
+NUMNODES=${#NODES[@]}
+
+# Create and run cases
+cd runs
+RUN=1
+
+function run_wrf {
+    cd R$RUN
+    export NODEPAIR=${1%%.*}-${2%%.*}
+
+    # Generate nodefile for run
+    yes $1 2> /dev/null | head -n 36 >> nodefile
+    yes $2 2> /dev/null | head -n 36 >> nodefile
+
+    # Run case
+    echo "$(date +%FT%T) | Launching run with nodes ${NODEPAIR}..." >> $LOGFILE
+    ${TESTPATH}/run_case > result &
+
+    # Get PID of first run
+    if [[ $RUN == 1 ]]; then
+        FJPID=$!
+    fi
+
+    cd ../
+}
+
+for N in $(seq 0 2 $((NUMNODES-2))); do
+    run_wrf ${NODES[$N]} ${NODES[$((N+1))]}
+    ((RUN++))
+done
+
+# Add last-node run if total number of nodes is odd
+if [[ $ODDNUM == TRUE ]]; then
+    wait $FJPID
+    run_wrf ${NODES[0]} ${NODES[-1]}
+fi
+
+echo "$(date +%FT%T) | All runs have begun..." >> $LOGFILE
+wait
+echo "$(date +%FT%T) | Tests completed!" >> $LOGFILE
+
+echo "Finished" > ../jobstat
