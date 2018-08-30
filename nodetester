@@ -6,7 +6,7 @@
 #   test case. Currently only supports pairwise tests.
 #
 #	Maintainer: Brian Vanderwende
-#	Revised:    22:40, 29 Aug 2018
+#	Revised:    10:29, 30 Aug 2018
 
 # ===== PARSE ARGUMENTS
 
@@ -26,7 +26,7 @@ Options:
     -p, --path      override the default path for test output
     -q, --queue     the queue on which jobs are run
 EOF
-exit
+exit $1
 }
 
 # Set default values
@@ -68,8 +68,8 @@ done
 
 # Make sure that the case exists
 if [[ ! -d cases/$CASE ]]; then
-    echo "Fatal: case $CASE not found; cannot start test"
-    exit 3
+    echo -e "Fatal: case $CASE not found; cannot start test\n"
+    usage 3
 fi
 
 # ===== BEGIN LOGGING
@@ -141,14 +141,14 @@ logmsg "Submitting job with the following settings:"
 logmsg "   -A $ACCOUNT -q $QUEUE -l select=${NUMNODES}:ncpus=36:mpiprocs=36"
 
 cd $TESTPATH
-JOBID=$(qsub -A $ACCOUNT -q $QUEUE -l select=$NUMNODES:ncpus=36:mpiprocs=36 driver.pbs)
+JOBID=$(qsub -A $ACCOUNT -q $QUEUE -l select=$NUMNODES:ncpus=36:mpiprocs=36 -o regular.log driver.pbs)
 echo -n "Submitted" > jobstat
 touch runs-all runs-pass runs-fail
 SECONDS=0
 
 # ===== MONITOR RUNS
 
-LOGSIZE=$(($(tput lines) - 17))
+LOGSIZE=$(($(tput lines) - 19))
 
 function ttylog {
 clear
@@ -158,6 +158,8 @@ $(date +%FT%T)
 PBS Job ID:         $JOBID
 Job Status:         $JOBSTAT
 Elapsed Time:       $TELAP
+Execution Queue:    $QUEUE
+Job Directory:      $TESTPATH
 
 Runs Submitted:     $NUMSUB / $NUMRUNS
 Runs Finished:      $((NUMPASS + NUMFAIL)) / $NUMRUNS
@@ -194,6 +196,7 @@ cat >> $LOGFILE << EOF
 ====================
 
 PBS Job ID:         $JOBID
+Execution Queue:    $QUEUE
 Elapsed Time:       $TELAP
 
 Number of Runs:     $NUMRUNS
@@ -208,4 +211,12 @@ Stddev I/O Time:    $(awk '{x+=$0;y+=$0^2}END{printf "%.2f s\n", sqrt(y/NR-(x/NR
 EOF
 
 clear
-tail -n 16 $LOGFILE
+tail -n 17 $LOGFILE
+
+# Print list of nodes with failures to give to admins
+if [[ -s ${TESTPATH}/runs-fail ]]; then
+    logmsg "Failures on nodes:"
+    logmsg $(paste -s -d ',' ${TESTPATH}/runs-fail | tr '-' ',')
+fi
+
+echo -e "\nResults stored in $TESTPATH"

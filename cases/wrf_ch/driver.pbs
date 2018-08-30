@@ -2,7 +2,6 @@
 
 #PBS -N NT-WRF-CHEY
 #PBS -l walltime=3600
-#PBS -o driver.log
 #PBS -j oe
 
 echo "Running" > jobstat
