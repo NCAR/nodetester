@@ -32,7 +32,7 @@ export max_cpu_time=300  # 220 s expected, being generous b/c of heterogeneity
 export max_io_time=30    # 10-20 s typical, but not complaining until 30 s
 
 # Get shuffled list of unique nodes
-readarray -t NODES <<< "$(eval echo $(squeue -j $SLURM_JOB_ID -o %N -h | sed -e 's/-/../g' -e 's/\[/{/g' -e 's/\]/}/g' -e 's/,/ /g') | tr ' ' '\n' | shuf)"
+readarray -t NODES <<< "$(scontrol show hostname $(squeue -j $SLURM_JOB_ID -o %N -h) | shuf)"
 NUMNODES=${#NODES[@]}
 
 # Create and run cases
