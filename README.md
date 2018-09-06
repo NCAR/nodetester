@@ -8,12 +8,14 @@ To use the node tester,navigate to `/glade/work/csgteam/nodetester`. From there,
 nodetester [options] CASE
 
 Options:
-    -a, --account   the account/project code to which jobs are charged
-    -f, --force     submit node tests even if requested nodes are not free
-    -h, --help      display this help and exit
-    -n, --nodes     the number of nodes to test (-1 for all available)
-    -p, --path      override the default path for test output
-    -q, --queue     the queue on which jobs are run
+    -a, --account       the account/project code to which jobs are charged
+    -f, --force         submit node tests even if requested nodes are not free
+    -h, --help          display this help and exit
+    -m, --machine       which machine to test (chey or dav)
+    -n, --nodes         the number of nodes to test (-1 for all available)
+    -o, --options       specify any other scheduler options for the main job
+    -p, --path          override the default path for test output
+    -q, --queue         the queue on which jobs are run
 ```
 
 ### What happens next?
@@ -33,14 +35,14 @@ At the moment, the following test cases are available in the csgteam install of 
 ### WRF case details
 
 *Designer: Brian*
-*Systems:  Cheyenne*
+*Systems:  Cheyenne, DAV*
 
-This case uses version 3.8.1 of WRF, built with the following:
+This case uses version 4.0 of WRF, built with the following:
 
-* Intel Compiler v16.0.3
-* SGI MPT 2.15f
-* NetCDF v4.4.1.1
+* Intel Compiler v17.0.1
+* SGI MPT v2.15f on Cheyenne / Open MPI 3.1.2 on DAV
+* NetCDF v4.6
 
 The case runs for three hours of simulation time across a 425x300x35 grid point domain. Two I/O operations occur - loading restart and boundary data and writing one output file. In total, 149 timesteps of model integration are run. Basic physics options are enabled.
 
-**Run scripts: run_wrf_ch.sh**
+**Run scripts: run_wrf_chey.sh, run_wrf_dav.sh**

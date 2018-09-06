@@ -3,20 +3,15 @@
 # Before beginning, sleep a little to help GLADE
 sleep $[($RANDOM % 30) + 1]s
 
-# The following MUST all be integers
+# The following settings must be integers
 expected_time_steps=149  # 149 time steps
-max_cpu_time=60          # 40s expected, rounding up to 60s
-max_io_time=40           # 5s to 15s typical, not complaining till 40s
 
 # Get node pair and set result file
 echo $NODEPAIR >> ../../runs-all
 res_file=result
 
-# Create new nodefile
-export PBS_NODEFILE=${PWD}/nodefile
-
 # Run WRF
-mpiexec_mpt ./wrf.exe >& wrf.log   # launch the executable
+$MPICMD $NODELIST $RUNARGS ./wrf.exe >& wrf.log   # launch the executable
 
 # ----- CHECK FOR SUCCESSFUL EXECUTION ----- #
 

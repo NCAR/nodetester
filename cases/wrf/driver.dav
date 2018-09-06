@@ -1,10 +1,10 @@
-#!/bin/bash
+#!/bin/bash -l
 
-#PBS -N NT-WRF-CHEY
-#PBS -l walltime=3600
-#PBS -j oe
+#SBATCH -J NT-WRF-DAV
+#SBATCH -t 60
 
 echo "Running" > jobstat
+source job.env
 
 cat >> $LOGFILE << EOF
 $(date +%FT%T) | Using WRF pairwise node test
@@ -20,11 +20,19 @@ ulimit -s unlimited
 ulimit -a >> $LOGFILE
 echo >> $LOGFILE
 
+# Scheduler-specific settings
 module purge
-module load intel/16.0.3 mpt/2.15f netcdf/4.4.1.1
+module load intel/17.0.1 openmpi/3.1.2 netcdf/4.6.0
+
+# Need to set this for old DAV
+export OMPI_MCA_btl_openib_if_include=mlx4_0
+
+# These settings must be integers
+export max_cpu_time=300  # 220 s expected, being generous b/c of heterogeneity
+export max_io_time=30    # 10-20 s typical, but not complaining until 30 s
 
 # Get shuffled list of unique nodes
-readarray -t NODES <<< "$(uniq $PBS_NODEFILE | shuf)"
+readarray -t NODES <<< "$(eval echo $(squeue -j $SLURM_JOB_ID -o %N -h | sed -e 's/-/../g' -e 's/\[/{/g' -e 's/\]/}/g' -e 's/,/ /g') | tr ' ' '\n' | shuf)"
 NUMNODES=${#NODES[@]}
 
 # Create and run cases
@@ -34,10 +42,7 @@ RUN=1
 function run_wrf {
     cd R$RUN
     export NODEPAIR=${1%%.*}-${2%%.*}
-
-    # Generate nodefile for run
-    yes $1 2> /dev/null | head -n 36 >> nodefile
-    yes $2 2> /dev/null | head -n 36 >> nodefile
+    export NODELIST="-w ${1},${2}"
 
     # Run case
     echo "$(date +%FT%T) | Launching run with nodes ${NODEPAIR}..." >> $LOGFILE

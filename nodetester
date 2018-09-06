@@ -6,7 +6,7 @@
 #   test case. Currently only supports pairwise tests.
 #
 #	Maintainer: Brian Vanderwende
-#	Revised:    10:29, 30 Aug 2018
+#	Revised:    09:07, 06 Sep 2018
 
 # ===== PARSE ARGUMENTS
 
@@ -15,21 +15,24 @@ cat << EOF
 Usage: nodetester [options] CASE 
 
 This script will submit and monitor a selected node test using
-the PBS job scheduler. Currently only pairwise tests are
+the specified job scheduler. Currently only pairwise tests are
 supported.
 
 Options:
-    -a, --account   the account/project code to which jobs are charged
-    -f, --force     submit node tests even if requested nodes are not free
-    -h, --help      display this help and exit
-    -n, --nodes     the number of nodes to test (-1 for all available)
-    -p, --path      override the default path for test output
-    -q, --queue     the queue on which jobs are run
+    -a, --account       the account/project code to which jobs are charged
+    -f, --force         submit node tests even if requested nodes are not free
+    -h, --help          display this help and exit
+    -m, --machine       which machine to test (chey or dav)
+    -n, --nodes         the number of nodes to test (-1 for all available)
+    -o, --options       specify any other scheduler options for the main job
+    -p, --path          override the default path for test output
+    -q, --queue         the queue on which jobs are run
 EOF
 exit $1
 }
 
 # Set default values
+MACHINE=chey
 ACCOUNT=SCSG0001
 CASE=unknown
 NUMNODES=-1
@@ -49,8 +52,14 @@ while [[ $# -gt 0 ]]; do
         -f|--force)
             FORCE=TRUE
             ;;
+        -m|--machine)
+            MACHINE="${2,,}"
+            shift; ;;
         -n|--nodes)
             NUMNODES="$2"
+            shift; ;;
+        -o|--options)
+            SCHEDOPTS="$2"
             shift; ;;
         -p|--path)
             TESTPATH="$2"
@@ -72,15 +81,23 @@ if [[ ! -d cases/$CASE ]]; then
     usage 3
 fi
 
+# Make sure that the machine is supported
+if [[ ! -f mach_${MACHINE}.cfg ]]; then
+    echo -e "Fatal: machine $MACHINE it not supported; cannot start test\n"
+    usage 4
+else
+    source mach_${MACHINE}.cfg
+fi
+
 # ===== BEGIN LOGGING
 
-export TESTPATH=${TESTPATH}/${CASE}/$(date +%FT%H%M%S)
-export LOGFILE=${TESTPATH}/main.log
+TESTPATH=${TESTPATH}/${CASE}/$(date +%FT%H%M%S)
+LOGFILE=${TESTPATH}/main.log
 mkdir -p ${TESTPATH}/runs
 
 cat << EOF
 ===========================
-  Starting PBS Nodetester 
+    Starting Nodetester 
 ===========================
 
 EOF
@@ -90,20 +107,20 @@ function logmsg {
 }
 
 logmsg "Initializing new node test..."
+logmsg "Using the $SCHEDNAME batch scheduler"
 
 # ===== CHECK AVAILABLE NODE COUNT
 
 # Get available nodes in specified queue
 if [[ $FORCE = TRUE ]]; then
     if [[ $NUMNODES -eq -1 ]]; then
-        NUMNODES=$(pbsnodes -a | grep -wE "Qlist =.*$QUEUE")
+        NUMNODES=$(eval "$GETNODESALL")
     fi
 
     logmsg "Note: skipping free node check (force); long queue wait possible!"
 else
-    FREENODES=$(pbsnodes -a | grep -wE "state = free|Qlist =.*$QUEUE" \
-                | grep -zoP "state.*\n.*$QUEUE" | grep -c free)
-
+    FREENODES=$(eval "$GETNODES")
+    
     if [[ $FREENODES -eq 0 ]]; then
         logmsg "Fatal: no free nodes available in $QUEUE queue"
         exit 1
@@ -120,28 +137,40 @@ logmsg "Using $NUMNODES nodes in the $QUEUE queue"
 NUMRUNS=$((NUMNODES % 2))
 
 if [[ $NUMRUNS -eq 1 ]]; then
-    export ODDNUM=TRUE
+    ODDNUM=TRUE
     logmsg "Note: odd number of nodes selected; an extra test will be performed"
 fi
 
 # ===== SUBMIT JOB
 
 logmsg "Running case $CASE in $TESTPATH"
-cp cases/${CASE}/driver.pbs cases/${CASE}/run_case ${TESTPATH}
+cp cases/${CASE}/driver.${MACHINE} cases/${CASE}/run_case ${TESTPATH}
 
 # Clone case directory
 logmsg "Creating run directories..."
 
 NUMRUNS=$((NUMNODES / 2 + NUMRUNS))
 for N in $(seq 1 $NUMRUNS); do
-    cp -Lr cases/${CASE}/run_files ${TESTPATH}/runs/R$N
+    cp -Lr cases/${CASE}/case_${MACHINE} ${TESTPATH}/runs/R$N
 done
 
+logmsg "Configuring job environment..."
+
+# Store variables for ingest into job environment
+cat > ${TESTPATH}/job.env << EOF
+export MPICMD="$MPICMD"
+export PPN=$PPN
+export RUNARGS="$RUNARGS"
+export LOGFILE=$LOGFILE
+TESTPATH=$TESTPATH
+ODDNUM=$ODDNUM
+EOF
+
 logmsg "Submitting job with the following settings:"
-logmsg "   -A $ACCOUNT -q $QUEUE -l select=${NUMNODES}:ncpus=36:mpiprocs=36"
+logmsg "   $JOBSETTINGS $SCHEDOPTS"
 
 cd $TESTPATH
-JOBID=$(qsub -A $ACCOUNT -q $QUEUE -l select=$NUMNODES:ncpus=36:mpiprocs=36 -o regular.log driver.pbs)
+JOBID=$(eval "$SUBCMD -o job.log $JOBSETTINGS $SCHEDOPTS driver.${MACHINE}")
 echo -n "Submitted" > jobstat
 touch runs-all runs-pass runs-fail
 SECONDS=0
@@ -155,7 +184,7 @@ clear
 cat << EOF
 $(date +%FT%T)
 
-PBS Job ID:         $JOBID
+Job ID:             $JOBID
 Job Status:         $JOBSTAT
 Elapsed Time:       $TELAP
 Execution Queue:    $QUEUE
@@ -189,13 +218,23 @@ done
 
 # ===== OUTPUT FINAL REPORT
 
+if [[ -f ${TESTPATH}/cpu.dat ]]; then
+    AVGCPU=$(awk '{x+=$0}END{printf "%.2f s\n", x/NR}' ${TESTPATH}/cpu.dat)
+    AVGIO=$(awk '{x+=$0}END{printf "%.2f s\n", x/NR}' ${TESTPATH}/io.dat)
+    STDCPU=$(awk '{x+=$0;y+=$0^2}END{printf "%.2f s\n", sqrt(y/NR-(x/NR)^2)}' ${TESTPATH}/cpu.dat)
+    STDIO=$(awk '{x+=$0;y+=$0^2}END{printf "%.2f s\n", sqrt(y/NR-(x/NR)^2)}' ${TESTPATH}/io.dat)
+else
+    AVGCPU=N/A AVGIO=N/A STDCPU=N/A STDIO=N/A
+fi
+
 cat >> $LOGFILE << EOF
 
 ====================
  Node test summary 
 ====================
 
-PBS Job ID:         $JOBID
+Batch system:       $SCHEDNAME
+Job ID:             $JOBID
 Execution Queue:    $QUEUE
 Elapsed Time:       $TELAP
 
@@ -203,18 +242,19 @@ Number of Runs:     $NUMRUNS
 Successful Runs:    $NUMPASS
 Failed Runs:        $NUMFAIL
 
-Average CPU Time:   $(awk '{x+=$0}END{printf "%.2f s\n", x/NR}' ${TESTPATH}/cpu.dat)
-Average I/O Time:   $(awk '{x+=$0}END{printf "%.2f s\n", x/NR}' ${TESTPATH}/io.dat)
+Average CPU Time:   $AVGCPU
+Average I/O Time:   $AVGIO
 
-Stddev CPU Time:    $(awk '{x+=$0;y+=$0^2}END{printf "%.2f s\n", sqrt(y/NR-(x/NR)^2)}' ${TESTPATH}/cpu.dat)
-Stddev I/O Time:    $(awk '{x+=$0;y+=$0^2}END{printf "%.2f s\n", sqrt(y/NR-(x/NR)^2)}' ${TESTPATH}/io.dat)
+Stddev CPU Time:    $STDCPU
+Stddev I/O Time:    $STDIO
 EOF
 
 clear
-tail -n 17 $LOGFILE
+tail -n 19 $LOGFILE
 
 # Print list of nodes with failures to give to admins
 if [[ -s ${TESTPATH}/runs-fail ]]; then
+    echo
     logmsg "Failures on nodes:"
     logmsg $(paste -s -d ',' ${TESTPATH}/runs-fail | tr '-' ',')
 fi
