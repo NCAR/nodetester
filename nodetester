@@ -6,7 +6,7 @@
 #   test case. Currently only supports pairwise tests.
 #
 #	Maintainer: Brian Vanderwende
-#	Revised:    09:07, 06 Sep 2018
+#	Revised:    10:19, 06 Sep 2018
 
 # ===== PARSE ARGUMENTS
 
@@ -96,6 +96,7 @@ LOGFILE=${TESTPATH}/main.log
 mkdir -p ${TESTPATH}/runs
 
 cat << EOF
+
 ===========================
     Starting Nodetester 
 ===========================
@@ -133,6 +134,7 @@ else
 fi
 
 logmsg "Using $NUMNODES nodes in the $QUEUE queue"
+JOBSETTINGS=${JOBSETTINGS/NUMNODES/$NUMNODES}
 
 NUMRUNS=$((NUMNODES % 2))
 
@@ -250,7 +252,7 @@ Stddev I/O Time:    $STDIO
 EOF
 
 clear
-tail -n 19 $LOGFILE
+tail -n 18 $LOGFILE
 
 # Print list of nodes with failures to give to admins
 if [[ -s ${TESTPATH}/runs-fail ]]; then
