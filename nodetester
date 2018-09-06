@@ -6,7 +6,7 @@
 #   test case.
 #
 #	Maintainer: Brian Vanderwende
-#	Revised:    14:01, 06 Sep 2018
+#	Revised:    14:48, 06 Sep 2018
 
 # ===== PARSE ARGUMENTS
 
@@ -176,6 +176,7 @@ logmsg "   $JOBSETTINGS $SCHEDOPTS"
 
 cd $TESTPATH
 JOBID=$(eval "$SUBCMD -o job.log $JOBSETTINGS $SCHEDOPTS driver.${MACHINE}")
+JOBID=${JOBID##* }
 echo -n "Submitted" > jobstat
 touch runs-all runs-pass runs-fail
 SECONDS=0
