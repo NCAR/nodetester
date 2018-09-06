@@ -1,5 +1,5 @@
 # nodetester
-A script to test node integrity using simple node-pair tests with commonly used applications.
+A script to test node integrity using simple n-node tests with commonly used applications.
 
 ## How to use
 To use the node tester,navigate to `/glade/work/csgteam/nodetester`. From there, you can start the node tester in one of two ways. Pre-configured launch scripts exist in the format `run_<CASE>_<MACHINE>.sh`. Alternatively, you may invoke `nodetester` manually:
@@ -20,7 +20,7 @@ Options:
 
 ### What happens next?
 
-The script will submit a single batch job that will launch MPI runs on pairs of nodes for every requested node in the chosen queue. Note that it will take GPFS some time to create run directories for all of the runs, so please be patient for large node counts.
+The script will submit a single batch job that will launch MPI runs on n-number of nodes for every requested node in the chosen queue. Note that it will take GPFS some time to create run directories for all of the runs, so please be patient for large node counts. If there are an odd number of nodes, relative to the node-per-run setting of that test case, an extra run will be performed to ensure complete coverage.
 
 When finished, the script will list any nodes that reported errors, and provide the path for all result files - in your/csgteam's scratch space.
 
@@ -32,10 +32,11 @@ Reservation support is currently disabled in this version of the nodetester, as 
 
 At the moment, the following test cases are available in the csgteam install of nodetester. If you would like to contribute a case, please prepare it for csgteam and document its usage here.
 
-### WRF case details
+### WRF Pairwise case details
 
 *Designer: Brian*
 *Systems:  Cheyenne, DAV*
+*Nodes:    2*
 
 This case uses version 4.0 of WRF, built with the following:
 

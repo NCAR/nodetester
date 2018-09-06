@@ -57,12 +57,13 @@ function run_wrf {
 }
 
 for N in $(seq 0 2 $((NUMNODES-2))); do
+    sleep 0.1
     run_wrf ${NODES[$N]} ${NODES[$((N+1))]}
     ((RUN++))
 done
 
 # Add last-node run if total number of nodes is odd
-if [[ $ODDNUM == TRUE ]]; then
+if [[ $LEFTOVER -gt 0 ]]; then
     wait $FJPID
     run_wrf ${NODES[0]} ${NODES[-1]}
 fi

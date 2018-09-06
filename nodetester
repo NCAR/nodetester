@@ -3,10 +3,10 @@
 # ===== PBS NODETESTER
 #
 #   This script runs a bunch of tests on nodes using a supplied
-#   test case. Currently only supports pairwise tests.
+#   test case.
 #
 #	Maintainer: Brian Vanderwende
-#	Revised:    10:19, 06 Sep 2018
+#	Revised:    14:01, 06 Sep 2018
 
 # ===== PARSE ARGUMENTS
 
@@ -79,6 +79,8 @@ done
 if [[ ! -d cases/$CASE ]]; then
     echo -e "Fatal: case $CASE not found; cannot start test\n"
     usage 3
+else
+    source cases/${CASE}/config
 fi
 
 # Make sure that the machine is supported
@@ -108,6 +110,7 @@ function logmsg {
 }
 
 logmsg "Initializing new node test..."
+logmsg "Using test case: $CASENAME"
 logmsg "Using the $SCHEDNAME batch scheduler"
 
 # ===== CHECK AVAILABLE NODE COUNT
@@ -136,11 +139,11 @@ fi
 logmsg "Using $NUMNODES nodes in the $QUEUE queue"
 JOBSETTINGS=${JOBSETTINGS/NUMNODES/$NUMNODES}
 
-NUMRUNS=$((NUMNODES % 2))
+LEFTOVER=$((NUMNODES % NPR))
 
-if [[ $NUMRUNS -eq 1 ]]; then
-    ODDNUM=TRUE
-    logmsg "Note: odd number of nodes selected; an extra test will be performed"
+if [[ $LEFTOVER -gt 0 ]]; then
+    LEFTOVER=1
+    logmsg "Note: leftover nodes to allocate; an extra test will be performed"
 fi
 
 # ===== SUBMIT JOB
@@ -151,7 +154,7 @@ cp cases/${CASE}/driver.${MACHINE} cases/${CASE}/run_case ${TESTPATH}
 # Clone case directory
 logmsg "Creating run directories..."
 
-NUMRUNS=$((NUMNODES / 2 + NUMRUNS))
+NUMRUNS=$((NUMNODES / 2 + LEFTOVER))
 for N in $(seq 1 $NUMRUNS); do
     cp -Lr cases/${CASE}/case_${MACHINE} ${TESTPATH}/runs/R$N
 done
@@ -165,7 +168,7 @@ export PPN=$PPN
 export RUNARGS="$RUNARGS"
 export LOGFILE=$LOGFILE
 TESTPATH=$TESTPATH
-ODDNUM=$ODDNUM
+LEFTOVER=$LEFTOVER
 EOF
 
 logmsg "Submitting job with the following settings:"
@@ -179,13 +182,14 @@ SECONDS=0
 
 # ===== MONITOR RUNS
 
-LOGSIZE=$(($(tput lines) - 19))
+LOGSIZE=$(($(tput lines) - 20))
 
 function ttylog {
 clear
 cat << EOF
 $(date +%FT%T)
 
+Test Case:          $CASENAME
 Job ID:             $JOBID
 Job Status:         $JOBSTAT
 Elapsed Time:       $TELAP
@@ -235,7 +239,8 @@ cat >> $LOGFILE << EOF
  Node test summary 
 ====================
 
-Batch system:       $SCHEDNAME
+Test Case:          $CASENAME
+Batch System:       $SCHEDNAME
 Job ID:             $JOBID
 Execution Queue:    $QUEUE
 Elapsed Time:       $TELAP
@@ -252,7 +257,7 @@ Stddev I/O Time:    $STDIO
 EOF
 
 clear
-tail -n 18 $LOGFILE
+tail -n 19 $LOGFILE
 
 # Print list of nodes with failures to give to admins
 if [[ -s ${TESTPATH}/runs-fail ]]; then
