@@ -6,7 +6,23 @@
 #   test case.
 #
 #	Maintainer: Brian Vanderwende
-#	Revised:    14:48, 06 Sep 2018
+#	Revised:    19:39, 06 Sep 2018
+
+# ===== ERROR HANDLING
+
+function cleanup {
+    if [[ $INIT == LOGGING ]]; then
+        logmsg "Quitting before test initialization complete"
+    elif [[ $INIT == JOB ]]; then
+        logmsg "Cancelling job and quitting..."
+        $DELCMD $JOBID
+        ttylog
+    fi
+
+    exit 5
+}
+
+trap cleanup SIGINT SIGTERM
 
 # ===== PARSE ARGUMENTS
 
@@ -109,6 +125,8 @@ function logmsg {
     echo "$(date +%FT%T) | $1" | tee -a $LOGFILE
 }
 
+INIT=LOGGING
+
 logmsg "Initializing new node test..."
 logmsg "Using test case: $CASENAME"
 logmsg "Using the $SCHEDNAME batch scheduler"
@@ -197,7 +215,7 @@ Elapsed Time:       $TELAP
 Execution Queue:    $QUEUE
 Job Directory:      $TESTPATH
 
-Runs Submitted:     $NUMSUB / $NUMRUNS
+Runs Started:       $NUMSUB / $NUMRUNS
 Runs Finished:      $((NUMPASS + NUMFAIL)) / $NUMRUNS
 
 Successful:         $NUMPASS
@@ -211,6 +229,8 @@ EOF
 
 tail -n $LOGSIZE $LOGFILE
 }
+
+INIT=JOB
 
 while [[ $JOBSTAT != "Finished" ]]; do
     sleep 5
