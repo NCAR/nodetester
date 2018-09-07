@@ -6,7 +6,7 @@
 #   test case.
 #
 #	Maintainer: Brian Vanderwende
-#	Revised:    19:39, 06 Sep 2018
+#	Revised:    14:00, 07 Sep 2018
 
 # ===== ERROR HANDLING
 
@@ -195,8 +195,11 @@ logmsg "   $JOBSETTINGS $SCHEDOPTS"
 cd $TESTPATH
 JOBID=$(eval "$SUBCMD -o job.log $JOBSETTINGS $SCHEDOPTS driver.${MACHINE}")
 JOBID=${JOBID##* }
+STATCMD=${STATCMD/JOBID/$JOBID}
+
 echo -n "Submitted" > jobstat
 touch runs-all runs-pass runs-fail
+ELAPSED=0
 SECONDS=0
 
 # ===== MONITOR RUNS
@@ -238,9 +241,20 @@ while [[ $JOBSTAT != "Finished" ]]; do
     NUMSUB=$(wc -l < runs-all 2> /dev/null)
     NUMPASS=$(wc -l < runs-pass 2> /dev/null)
     NUMFAIL=$(wc -l < runs-fail 2> /dev/null)
-    TELAP=$(TZ=UTC0 printf '%(%M min %S sec)T\n' $SECONDS)
+    TELAP=$(TZ=UTC0 printf '%(%M min %S sec)T\n' $((ELAPSED+SECONDS)))
 
     ttylog
+
+    # Check for job loss
+    if [[ $SECONDS -ge 30 ]]; then
+        let ELAPSED+=SECONDS
+        SECONDS=0
+        
+        if [[ $(eval "$STATCMD")z == z ]]; then
+            logmsg "Fatal: $SCHEDNAME reports that the job is no longer active"
+            exit 6
+        fi
+    fi
 done
 
 # ===== OUTPUT FINAL REPORT
