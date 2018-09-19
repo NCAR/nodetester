@@ -6,7 +6,7 @@
 #   test case.
 #
 #	Maintainer: Brian Vanderwende
-#	Revised:    14:00, 07 Sep 2018
+#	Revised:    16:12, 19 Sep 2018
 
 # ===== ERROR HANDLING
 
@@ -43,6 +43,7 @@ Options:
     -o, --options       specify any other scheduler options for the main job
     -p, --path          override the default path for test output
     -q, --queue         the queue on which jobs are run
+    -s, --seed          specify the seed used to pair nodes
 EOF
 exit $1
 }
@@ -54,6 +55,7 @@ CASE=unknown
 NUMNODES=-1
 TESTPATH=/glade/scratch/$USER/nodetests
 QUEUE=regular
+SEED=$(cat /dev/urandom | tr -dc 'A-Z0-9' | fold -w 8 | head -n 1)
 
 while [[ $# -gt 0 ]]; do
     KEY="$1"
@@ -82,6 +84,9 @@ while [[ $# -gt 0 ]]; do
             shift; ;;
         -q|--queue)
             QUEUE="$2"
+            shift; ;;
+        -s|--seed)
+            SEED="$2"
             shift; ;;
         *)
             CASE=$KEY
@@ -131,6 +136,10 @@ logmsg "Initializing new node test..."
 logmsg "Using test case: $CASENAME"
 logmsg "Using the $SCHEDNAME batch scheduler"
 
+# Create randomizer function
+echo "openssl enc -aes-256-ctr -pass pass:$SEED -nosalt </dev/zero 2>/dev/null" > ${TESTPATH}/seedfunc
+chmod +x ${TESTPATH}/seedfunc
+
 # ===== CHECK AVAILABLE NODE COUNT
 
 # Get available nodes in specified queue
@@ -155,6 +164,7 @@ else
 fi
 
 logmsg "Using $NUMNODES nodes in the $QUEUE queue"
+logmsg "Seeding nodes using random code: $SEED"
 JOBSETTINGS=${JOBSETTINGS/NUMNODES/$NUMNODES}
 
 LEFTOVER=$((NUMNODES % NPR))
@@ -204,7 +214,7 @@ SECONDS=0
 
 # ===== MONITOR RUNS
 
-LOGSIZE=$(($(tput lines) - 20))
+LOGSIZE=$(($(tput lines) - 21))
 
 function ttylog {
 clear
@@ -213,6 +223,7 @@ $(date +%FT%T)
 
 Test Case:          $CASENAME
 Job ID:             $JOBID
+Node Order Seed:    $SEED
 Job Status:         $JOBSTAT
 Elapsed Time:       $TELAP
 Execution Queue:    $QUEUE
@@ -278,6 +289,7 @@ Test Case:          $CASENAME
 Batch System:       $SCHEDNAME
 Job ID:             $JOBID
 Execution Queue:    $QUEUE
+Node Order Seed:    $SEED
 Elapsed Time:       $TELAP
 
 Number of Runs:     $NUMRUNS
@@ -292,7 +304,7 @@ Stddev I/O Time:    $STDIO
 EOF
 
 clear
-tail -n 19 $LOGFILE
+tail -n 20 $LOGFILE
 
 # Print list of nodes with failures to give to admins
 if [[ -s ${TESTPATH}/runs-fail ]]; then
