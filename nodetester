@@ -6,7 +6,7 @@
 #   test case.
 #
 #	Maintainer: Brian Vanderwende
-#	Revised:    16:12, 19 Sep 2018
+#	Revised:    17:15, 19 Sep 2018
 
 # ===== ERROR HANDLING
 
@@ -247,15 +247,6 @@ tail -n $LOGSIZE $LOGFILE
 INIT=JOB
 
 while [[ $JOBSTAT != "Finished" ]]; do
-    sleep 5
-    JOBSTAT=$(cat jobstat)
-    NUMSUB=$(wc -l < runs-all 2> /dev/null)
-    NUMPASS=$(wc -l < runs-pass 2> /dev/null)
-    NUMFAIL=$(wc -l < runs-fail 2> /dev/null)
-    TELAP=$(TZ=UTC0 printf '%(%M min %S sec)T\n' $((ELAPSED+SECONDS)))
-
-    ttylog
-
     # Check for job loss
     if [[ $SECONDS -ge 30 ]]; then
         let ELAPSED+=SECONDS
@@ -266,6 +257,16 @@ while [[ $JOBSTAT != "Finished" ]]; do
             exit 6
         fi
     fi
+
+    # Write logs
+    sleep 5
+    JOBSTAT=$(cat jobstat)
+    NUMSUB=$(wc -l < runs-all 2> /dev/null)
+    NUMPASS=$(wc -l < runs-pass 2> /dev/null)
+    NUMFAIL=$(wc -l < runs-fail 2> /dev/null)
+    TELAP=$(TZ=UTC0 printf '%(%M min %S sec)T\n' $((ELAPSED+SECONDS)))
+
+    ttylog
 done
 
 # ===== OUTPUT FINAL REPORT
