@@ -15,21 +15,18 @@ EOF
 
 # Set up case environment
 export OMP_NUM_THREADS=1
-ulimit -c unlimited
-ulimit -s unlimited
+#ulimit -c unlimited
+#ulimit -s unlimited
 ulimit -a >> $LOGFILE
 echo >> $LOGFILE
 
 # Scheduler-specific settings
 module purge
-module load intel/17.0.1 openmpi/3.1.2 netcdf/4.6.0
-
-# Need to set this for old DAV
-export OMPI_MCA_btl_openib_if_include=mlx4_0
+module load ncarenv intel/17.0.1 openmpi/3.1.3 netcdf/4.6.1
 
 # These settings must be integers
-export max_cpu_time=300  # 220 s expected, being generous b/c of heterogeneity
-export max_io_time=30    # 10-20 s typical, but not complaining until 30 s
+export max_cpu_time=130  # 115 s expected, but not complaining until 130 s
+export max_io_time=20    # 5-15 s typical, but not complaining until 20 s
 
 # Get shuffled list of unique nodes
 readarray -t NODES <<< "$(scontrol show hostname $(squeue -j $SLURM_JOB_ID -o %N -h) | shuf --random-source=<(./seedfunc))"

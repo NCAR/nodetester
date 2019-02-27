@@ -41,7 +41,7 @@ At the moment, the following test cases are available in the csgteam install of 
 This case uses version 4.0 of WRF, built with the following:
 
 * Intel Compiler v17.0.1
-* SGI MPT v2.15f on Cheyenne / Open MPI 3.1.2 on DAV
+* SGI MPT v2.15f on Cheyenne / Open MPI 3.1.3 on DAV
 * NetCDF v4.6
 
 The case runs for three hours of simulation time across a 425x300x35 grid point domain. Two I/O operations occur - loading restart and boundary data and writing one output file. In total, 149 timesteps of model integration are run. Basic physics options are enabled.

@@ -23,7 +23,7 @@ echo >> $LOGFILE
 
 # Scheduler-specific settings
 module purge
-module load intel/17.0.1 mpt/2.15f netcdf/4.6.0
+module load ncarenv intel/17.0.1 mpt/2.15f netcdf/4.6.0
 
 # These settings must be integers
 export max_cpu_time=70  # 60 s expected, rounding up to 70 s

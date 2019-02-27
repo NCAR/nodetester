@@ -6,7 +6,7 @@
 #   test case.
 #
 #	Maintainer: Brian Vanderwende
-#	Revised:    17:15, 19 Sep 2018
+#	Revised:    10:36, 12 Dec 2018
 
 # ===== ERROR HANDLING
 
@@ -56,6 +56,7 @@ NUMNODES=-1
 TESTPATH=/glade/scratch/$USER/nodetests
 QUEUE=regular
 SEED=$(cat /dev/urandom | tr -dc 'A-Z0-9' | fold -w 8 | head -n 1)
+MYPATH=$(cd $(dirname ${BASH_SOURCE[0]}) >/dev/null && pwd -P)
 
 while [[ $# -gt 0 ]]; do
     KEY="$1"
@@ -95,6 +96,8 @@ while [[ $# -gt 0 ]]; do
 
     shift
 done
+
+cd $MYPATH
 
 # Make sure that the case exists
 if [[ ! -d cases/$CASE ]]; then
@@ -180,11 +183,12 @@ logmsg "Running case $CASE in $TESTPATH"
 cp cases/${CASE}/driver.${MACHINE} cases/${CASE}/run_case ${TESTPATH}
 
 # Clone case directory
-logmsg "Creating run directories..."
+logmsg "Creating and populating run directories..."
 
 NUMRUNS=$((NUMNODES / 2 + LEFTOVER))
 for N in $(seq 1 $NUMRUNS); do
-    cp -Lr cases/${CASE}/case_${MACHINE} ${TESTPATH}/runs/R$N
+    cp -Lr cases/${CASE}/case_${MACHINE}/copy ${TESTPATH}/runs/R$N
+    ln -s ${MYPATH}/cases/${CASE}/case_${MACHINE}/link/* ${TESTPATH}/runs/R$N
 done
 
 logmsg "Configuring job environment..."
