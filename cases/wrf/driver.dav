@@ -41,6 +41,9 @@ function run_wrf {
     export NODEPAIR=${1%%.*}-${2%%.*}
     export NODELIST="-w ${1},${2}"
 
+    # Store pairing for reference
+    echo "R$RUN $NODEPAIR" >> ${TESTPATH}/runpairs
+
     # Run case
     echo "$(date +%FT%T) | Launching run with nodes ${NODEPAIR}..." >> $LOGFILE
     ${TESTPATH}/run_case > result &
