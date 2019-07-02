@@ -10,15 +10,20 @@ expected_time_steps=149  # 149 time steps
 echo $NODEPAIR >> ../../runs-all
 res_file=result
 
-# Run WRF
-$MPICMD $NODELIST $RUNARGS ./wrf.exe >& wrf.log   # launch the executable
+# Run WRF (make sure it doesn't run forever - 5 min max)
+timeout 5m $MPICMD $NODELIST $RUNARGS ./wrf.exe >& wrf.log   # launch the executable
 
 # ----- CHECK FOR SUCCESSFUL EXECUTION ----- #
 
 exit_code=$?
 
 if [ $exit_code -ne 0 ]; then
-    echo "$(date +%FT%T) | ($NODEPAIR) EXECUTION ERROR" >> $LOGFILE
+    if [ $exit_code -eq 124 ]; then
+        echo "$(date +%FT%T) | ($NODEPAIR) TIMEOUT ERROR" >> $LOGFILE
+    else
+        echo "$(date +%FT%T) | ($NODEPAIR) EXECUTION ERROR" >> $LOGFILE
+    fi
+
     FAIL=TRUE
 else
     # Run stats script and store output in array
