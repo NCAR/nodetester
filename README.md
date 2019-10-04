@@ -46,7 +46,7 @@ At the moment, the following test cases are available in the csgteam install of 
 This case uses version 4.1 of WRF, built with the following:
 
 Cheyenne      | DAV
-------------------------------
+--------------|---------------
 Intel v18.0.5 | Intel v17.0.1
 SGI MPT v2.19 | Open MPI 3.1.4
 NetCDF v4.7.1 | NetCDF v4.6.1
