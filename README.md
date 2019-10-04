@@ -54,3 +54,7 @@ NetCDF v4.7.1 | NetCDF v4.6.1
 The case runs for three hours of simulation time across a 425x300x35 grid point domain. Two I/O operations occur - loading restart and boundary data and writing one output file. In total, 149 timesteps of model integration are run. Basic physics options are enabled.
 
 **Run scripts: run_wrf_chey.sh, run_wrf_dav.sh**
+
+#### Rebuilding the WRF case
+
+If the system software is upgraded or the case files are missing, you can recreate the case files using the "setup.sh" script located within `cases/wrf/setup/`. Noe that this script will build and run WRF, so it will take upwards of an hour to complete. It's best to run it before you need to test!

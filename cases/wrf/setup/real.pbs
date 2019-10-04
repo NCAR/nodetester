@@ -2,7 +2,7 @@
 #PBS -N conus-real
 #PBS -A SCSG0001
 #PBS -l walltime=05:00
-#PBS -q share
+#PBS -q system
 #PBS -j oe
 #PBS -o real.log
 #PBS -l select=1:ncpus=4:mpiprocs=4

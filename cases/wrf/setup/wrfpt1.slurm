@@ -5,7 +5,7 @@
 #SBATCH --ntasks-per-node 16
 #SBATCH -t 30:00
 #SBATCH -A SCSG0001
-#SBATCH -p dav
+#SBATCH -p system
 #SBATCH -o wrfpt1.log
 
 # Setup environment

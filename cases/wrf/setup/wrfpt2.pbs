@@ -2,7 +2,7 @@
 #PBS -N conus-wrf
 #PBS -A SCSG0001
 #PBS -l walltime=05:00
-#PBS -q regular
+#PBS -q system
 #PBS -j oe
 #PBS -o wrfpt2.log
 #PBS -l select=2:ncpus=36:mpiprocs=36
