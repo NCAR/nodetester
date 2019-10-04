@@ -1,2 +1,3 @@
 test*.sh
 cases/*/case*/
+met_em*
