@@ -1,3 +1,2 @@
-setup
 test*.sh
-cases/*/*/
+cases/*/case*/

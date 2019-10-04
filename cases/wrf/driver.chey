@@ -21,9 +21,9 @@ ulimit -s unlimited
 ulimit -a >> $LOGFILE
 echo >> $LOGFILE
 
-# Scheduler-specific settings
+# System-specific settings
 module purge
-module load ncarenv intel/18.0.5 mpt/2.19 netcdf/4.6.3
+module reset
 
 # These settings must be integers
 export max_cpu_time=70  # 60 s expected, rounding up to 70 s
