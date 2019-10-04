@@ -67,10 +67,14 @@ else
     echo ${stats[5]} >> ../../io.dat
 fi
 
+# Rename directory to make analyzing results easier
+cd ../
+mv R$RUN $NODEPAIR
+
 # ----- REPORT RESULTS
 
 if [[ $FAIL == TRUE ]]; then
-    echo $NODEPAIR >> ../../runs-fail
+    echo $NODEPAIR >> ../runs-fail
 else
-    echo $NODEPAIR >> ../../runs-pass
+    echo $NODEPAIR >> ../runs-pass
 fi

@@ -5,8 +5,8 @@
 #   This script runs a bunch of tests on nodes using a supplied
 #   test case.
 #
-#	Maintainer: Brian Vanderwende
-#	Revised:    10:36, 12 Dec 2018
+#	Author:    Brian Vanderwende
+#	Revised:   14:50, 04 Oct 2019
 
 # ===== ERROR HANDLING
 
@@ -187,8 +187,8 @@ logmsg "Creating and populating run directories..."
 
 NUMRUNS=$((NUMNODES / 2 + LEFTOVER))
 for N in $(seq 1 $NUMRUNS); do
-    cp -Lr cases/${CASE}/case_${MACHINE}/copy ${TESTPATH}/runs/R$N
-    ln -s ${MYPATH}/cases/${CASE}/case_${MACHINE}/link/* ${TESTPATH}/runs/R$N
+    mkdir -p ${TESTPATH}/runs/R$N
+    ln -s ${MYPATH}/cases/${CASE}/case_${MACHINE}/* ${TESTPATH}/runs/R$N
 done
 
 logmsg "Configuring job environment..."
@@ -255,7 +255,7 @@ while [[ $JOBSTAT != "Finished" ]]; do
     if [[ $SECONDS -ge 30 ]]; then
         let ELAPSED+=SECONDS
         SECONDS=0
-        
+
         if [[ $(eval "$STATCMD")z == z ]]; then
             logmsg "Fatal: $SCHEDNAME reports that the job is no longer active"
             exit 6
