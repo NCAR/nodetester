@@ -32,7 +32,7 @@ NUMNODES=${#NODES[@]}
 
 # Create and run cases
 cd runs
-RUN=1
+export RUN=1
 
 function run_wrf {
     cd R$RUN
