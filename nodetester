@@ -6,7 +6,7 @@
 #   test case.
 #
 #	Author:    Brian Vanderwende
-#	Revised:   14:50, 04 Oct 2019
+#	Revised:   21:22, 21 Sep 2020
 
 # ===== ERROR HANDLING
 
@@ -43,6 +43,7 @@ Options:
     -o, --options       specify any other scheduler options for the main job
     -p, --path          override the default path for test output
     -q, --queue         the queue on which jobs are run
+    --reservation       reservation you wish to use (optional name after =)
     -s, --seed          specify the seed used to pair nodes
 EOF
 exit $1
@@ -86,6 +87,13 @@ while [[ $# -gt 0 ]]; do
         -q|--queue)
             QUEUE="$2"
             shift; ;;
+        --reservation*)
+            RESMODE=TRUE
+
+            if [[ $1 == *=* ]]; then
+                RESNAME=${1##*=}
+            fi
+            ;;
         -s|--seed)
             SEED="$2"
             shift; ;;
@@ -146,7 +154,11 @@ chmod +x ${TESTPATH}/seedfunc
 # ===== CHECK AVAILABLE NODE COUNT
 
 # Get available nodes in specified queue
-if [[ $FORCE = TRUE ]]; then
+if [[ $RESMODE == TRUE ]]; then
+    if [[ $NUMNODES -eq -1 ]]; then
+        NUMNODES=$(eval "$GETNODESRES")
+    fi
+elif [[ $FORCE = TRUE ]]; then
     if [[ $NUMNODES -eq -1 ]]; then
         NUMNODES=$(eval "$GETNODESALL")
     fi
@@ -167,9 +179,20 @@ else
 fi
 
 logmsg "Using $NUMNODES nodes in the $QUEUE queue"
-logmsg "Seeding nodes using random code: $SEED"
 JOBSETTINGS=${JOBSETTINGS/NUMNODES/$NUMNODES}
 
+if [[ $RESMODE == TRUE ]]; then
+    logmsg "Using scheduler reservation $RESNAME"
+
+    if [[ -n $RESNAME ]]; then
+        JOBSETTINGS="$JOBSETTINGS ${RESFLAG/RESNAME/$RESNAME}"
+        QUEUE="$QUEUE (reservation $RESNAME)"
+    else
+        QUEUE="$QUEUE (reservation)"
+    fi
+fi
+
+logmsg "Seeding nodes using random code: $SEED"
 LEFTOVER=$((NUMNODES % NPR))
 
 if [[ $LEFTOVER -gt 0 ]]; then
@@ -185,7 +208,7 @@ cp cases/${CASE}/driver.${MACHINE} cases/${CASE}/run_case ${TESTPATH}
 # Clone case directory
 logmsg "Creating and populating run directories..."
 
-NUMRUNS=$((NUMNODES / 2 + LEFTOVER))
+NUMRUNS=$((NUMNODES / NPR + LEFTOVER))
 for N in $(seq 1 $NUMRUNS); do
     mkdir -p ${TESTPATH}/runs/R$N
     ln -s ${MYPATH}/cases/${CASE}/case_${MACHINE}/* ${TESTPATH}/runs/R$N
@@ -275,15 +298,6 @@ done
 
 # ===== OUTPUT FINAL REPORT
 
-if [[ -f ${TESTPATH}/cpu.dat ]]; then
-    AVGCPU=$(awk '{x+=$0}END{printf "%.2f s\n", x/NR}' ${TESTPATH}/cpu.dat)
-    AVGIO=$(awk '{x+=$0}END{printf "%.2f s\n", x/NR}' ${TESTPATH}/io.dat)
-    STDCPU=$(awk '{x+=$0;y+=$0^2}END{printf "%.2f s\n", sqrt(y/NR-(x/NR)^2)}' ${TESTPATH}/cpu.dat)
-    STDIO=$(awk '{x+=$0;y+=$0^2}END{printf "%.2f s\n", sqrt(y/NR-(x/NR)^2)}' ${TESTPATH}/io.dat)
-else
-    AVGCPU=N/A AVGIO=N/A STDCPU=N/A STDIO=N/A
-fi
-
 cat >> $LOGFILE << EOF
 
 ====================
@@ -301,15 +315,11 @@ Number of Runs:     $NUMRUNS
 Successful Runs:    $NUMPASS
 Failed Runs:        $NUMFAIL
 
-Average CPU Time:   $AVGCPU
-Average I/O Time:   $AVGIO
-
-Stddev CPU Time:    $STDCPU
-Stddev I/O Time:    $STDIO
+$(case_report)
 EOF
 
 clear
-tail -n 20 $LOGFILE
+tail -n $((15 + REPLEN)) $LOGFILE
 
 # Print list of nodes with failures to give to admins
 if [[ -s ${TESTPATH}/runs-fail ]]; then
