@@ -5,11 +5,11 @@
 #   Run a short 149 timestep WRF restart simulation.
 #
 #	Maintainer: Brian Vanderwende
-#	Revised:    15:53, 26 Feb 2019
+#	Revised:   22:42, 20 Jul 2021
 
 # Test configuration
 CASE=wrf
 ACCOUNT=SCSG0001
 
 # Run nodetester across all nodes
-./nodetester --machine dav --queue system --account $ACCOUNT $CASE
+bin/nodetester --machine dav --queue system --account $ACCOUNT $CASE

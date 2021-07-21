@@ -2,10 +2,9 @@
 #PBS -N conus-wrf
 #PBS -A SCSG0001
 #PBS -l walltime=05:00
-#PBS -q system
 #PBS -j oe
 #PBS -o wrfpt2.log
-#PBS -l select=2:ncpus=36:mpiprocs=36
+#PBS -l select=2:ncpus=36:mpiprocs=36:mem=45GB
 
 # Setup environment
 export TMPDIR=/glade/scratch/$USER/tmp
@@ -14,8 +13,8 @@ mkdir -p $TMPDIR
 module purge
 module reset
 
-# Run real.exe
-mpiexec_mpt ./wrf.exe
+# Run wrf.exe
+$MPIBIN ./wrf.exe
 
 # Save log files
 mkdir -p logs.wrfpt2

@@ -6,7 +6,7 @@
 #   test case.
 #
 #	Author:    Brian Vanderwende
-#	Revised:   21:22, 21 Sep 2020
+#	Revised:   22:24, 20 Jul 2021
 
 # ===== ERROR HANDLING
 
@@ -31,33 +31,33 @@ cat << EOF
 Usage: nodetester [options] CASE 
 
 This script will submit and monitor a selected node test using
-the specified job scheduler. Currently only pairwise tests are
-supported.
+the specified machine configuration.
 
 Options:
     -a, --account       the account/project code to which jobs are charged
     -f, --force         submit node tests even if requested nodes are not free
     -h, --help          display this help and exit
-    -m, --machine       which machine to test (chey or dav)
+    -m, --machine       which machine to test (cheyenne or dav)
     -n, --nodes         the number of nodes to test (-1 for all available)
     -o, --options       specify any other scheduler options for the main job
     -p, --path          override the default path for test output
     -q, --queue         the queue on which jobs are run
     --reservation       reservation you wish to use (optional name after =)
+    --route             specify a routing queue to submit to (dav)
     -s, --seed          specify the seed used to pair nodes
 EOF
 exit $1
 }
 
 # Set default values
-MACHINE=chey
+MACHINE=cheyenne
 ACCOUNT=SCSG0001
 CASE=unknown
 NUMNODES=-1
 TESTPATH=/glade/scratch/$USER/nodetests
 QUEUE=regular
 SEED=$(cat /dev/urandom | tr -dc 'A-Z0-9' | fold -w 8 | head -n 1)
-MYPATH=$(cd $(dirname ${BASH_SOURCE[0]}) >/dev/null && pwd -P)
+NTPATH=$(cd $(dirname ${BASH_SOURCE[0]})/../ >/dev/null && pwd -P)
 
 while [[ $# -gt 0 ]]; do
     KEY="$1"
@@ -94,6 +94,9 @@ while [[ $# -gt 0 ]]; do
                 RESNAME=${1##*=}
             fi
             ;;
+        --route)
+            RQUEUE="$2"
+            shift; ;;
         -s|--seed)
             SEED="$2"
             shift; ;;
@@ -105,7 +108,7 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
-cd $MYPATH
+cd $NTPATH
 
 # Make sure that the case exists
 if [[ ! -d cases/$CASE ]]; then
@@ -116,11 +119,11 @@ else
 fi
 
 # Make sure that the machine is supported
-if [[ ! -f mach_${MACHINE}.cfg ]]; then
+if [[ ! -f machines/${MACHINE}.cfg ]]; then
     echo -e "Fatal: machine $MACHINE it not supported; cannot start test\n"
     usage 4
 else
-    source mach_${MACHINE}.cfg
+    source machines/${MACHINE}.cfg
 fi
 
 # ===== BEGIN LOGGING
@@ -203,7 +206,7 @@ fi
 # ===== SUBMIT JOB
 
 logmsg "Running case $CASE in $TESTPATH"
-cp cases/${CASE}/driver.${MACHINE} cases/${CASE}/run_case ${TESTPATH}
+cp cases/driver.${MACHINE} cases/${CASE}/launch ${TESTPATH}
 
 # Clone case directory
 logmsg "Creating and populating run directories..."
@@ -211,31 +214,31 @@ logmsg "Creating and populating run directories..."
 NUMRUNS=$((NUMNODES / NPR + LEFTOVER))
 for N in $(seq 1 $NUMRUNS); do
     mkdir -p ${TESTPATH}/runs/R$N
-    ln -s ${MYPATH}/cases/${CASE}/case_${MACHINE}/* ${TESTPATH}/runs/R$N
+    ln -s ${NTPATH}/cases/${CASE}/case_${MACHINE}/* ${TESTPATH}/runs/R$N
 done
 
 logmsg "Configuring job environment..."
 
 # Store variables for ingest into job environment
-cat > ${TESTPATH}/job.env << EOF
-export MPICMD="$MPICMD"
-export PPN=$PPN
-export RUNARGS="$RUNARGS"
+cat > ${TESTPATH}/my.env << EOF
+source ${NTPATH}/cases/${CASE}/config
+source ${NTPATH}/machines/${MACHINE}.cfg
 export LOGFILE=$LOGFILE
-TESTPATH=$TESTPATH
-LEFTOVER=$LEFTOVER
+export TESTPATH=$TESTPATH
+export NUMRUNS=$NUMRUNS
 EOF
 
 logmsg "Submitting job with the following settings:"
 logmsg "   $JOBSETTINGS $SCHEDOPTS"
 
 cd $TESTPATH
+echo -e "\n# Submit command: $SUBCMD -o driver.log $JOBSETTINGS $SCHEDOPTS driver.${MACHINE}" >> driver.$MACHINE
 JOBID=$(eval "$SUBCMD -o job.log $JOBSETTINGS $SCHEDOPTS driver.${MACHINE}")
 JOBID=${JOBID##* }
 STATCMD=${STATCMD/JOBID/$JOBID}
 
-echo -n "Submitted" > jobstat
-touch runs-all runs-pass runs-fail
+echo -n "Submitted" > my.status
+touch map pass fail
 ELAPSED=0
 SECONDS=0
 
@@ -287,10 +290,10 @@ while [[ $JOBSTAT != "Finished" ]]; do
 
     # Write logs
     sleep 5
-    JOBSTAT=$(cat jobstat)
-    NUMSUB=$(wc -l < runs-all 2> /dev/null)
-    NUMPASS=$(wc -l < runs-pass 2> /dev/null)
-    NUMFAIL=$(wc -l < runs-fail 2> /dev/null)
+    JOBSTAT=$(cat my.status)
+    NUMSUB=$(wc -l < map 2> /dev/null)
+    NUMPASS=$(wc -l < pass 2> /dev/null)
+    NUMFAIL=$(wc -l < fail 2> /dev/null)
     TELAP=$(TZ=UTC0 printf '%(%M min %S sec)T\n' $((ELAPSED+SECONDS)))
 
     ttylog
@@ -315,17 +318,16 @@ Number of Runs:     $NUMRUNS
 Successful Runs:    $NUMPASS
 Failed Runs:        $NUMFAIL
 
-$(case_report)
 EOF
 
 clear
 tail -n $((15 + REPLEN)) $LOGFILE
 
 # Print list of nodes with failures to give to admins
-if [[ -s ${TESTPATH}/runs-fail ]]; then
+if [[ -s ${TESTPATH}/fail ]]; then
     echo
     logmsg "Failures on nodes:"
-    logmsg $(paste -s -d ',' ${TESTPATH}/runs-fail | tr '-' ',')
+    logmsg $(awk '{print $2}' ${TESTPATH}/fail | paste -s -d,)
 fi
 
 echo -e "\nResults stored in $TESTPATH"

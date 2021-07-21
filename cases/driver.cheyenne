@@ -1,0 +1,107 @@
+#!/bin/bash
+#PBS -j oe
+
+source my.env
+echo "Running" > $TESTPATH/my.status
+
+function logmsg {
+    if [[ -n $RUN ]]; then
+        echo -e "$(date +%FT%T) | ($RUN) $1" >> $LOGFILE
+    else
+        echo -e "$(date +%FT%T) | $1" >> $LOGFILE
+    fi
+}
+
+export -f logmsg
+
+logmsg "Using $CASENAME node test"
+logmsg "Starting tests..."
+logmsg "Initializing environment...\n"
+
+# Set up case environment
+ulimit -c unlimited
+ulimit -s unlimited
+ulimit -a >> $LOGFILE
+echo >> $LOGFILE
+
+# System-specific settings
+module purge
+module reset
+
+# Get shuffled list of unique nodes
+HEADNODE=$(head -n1 $PBS_NODEFILE)
+readarray -t NODES <<< "$(uniq $PBS_NODEFILE | shuf --random-source=<(./seedfunc))"
+NUMNODES=${#NODES[@]}
+
+# Create and run cases
+cd runs
+RN=1 NNODES=1
+declare -A RPIDS
+
+function classify_run {
+    wait $1
+
+    if [[ $? -eq 0 ]]; then
+        echo ${RPIDS[$1]} >> $TESTPATH/pass
+    else
+        echo ${RPIDS[$1]} >> $TESTPATH/fail
+    fi
+
+    unset RPIDS[$1]
+}
+
+function start_run {
+    export RUN=R$RN
+    cd $RUN
+
+    # Run case
+    logmsg "Launching run with nodes ${HOSTLIST}..."
+    echo $RUN $HOSTLIST >> $TESTPATH/map
+    ${TESTPATH}/launch &
+
+    # Track PIDs (and note first run PID)
+    if [[ $RN == 1 ]]; then
+        FJPID=$!; RPIDS[$FJPID]="$RUN $HOSTLIST"
+    else
+        RPIDS[$!]="$RUN $HOSTLIST"
+    fi
+
+    cd ../
+    unset RUN
+}
+
+while [[ $RN -le $NUMRUNS ]]; do
+    sleep 0.1
+
+    if [[ $N == $NUMNODES ]]; then
+        # Need to wait for first run to finish before run can use initial nodes
+        classify_run $FJPID
+        N=0
+    fi
+
+    # Open MPI hangs if head node is not listed first in hostlist
+    if [[ ${NODES[$N]} == $HEADNODE ]]; then
+        export HOSTLIST=${NODES[$N]%%.*},${HOSTLIST}
+    else
+        export HOSTLIST=${HOSTLIST},${NODES[$N]%%.*}
+    fi
+
+    if [[ $NNODES -eq $NPR ]]; then
+        HOSTLIST=$(sed -E -e 's/^,|,$//g' -e 's/,,/,/g' <<< $HOSTLIST)
+        start_run
+        ((RN++)); NNODES=0 HOSTLIST=
+    fi
+    
+    ((N++)); ((NNODES++))
+done
+
+logmsg "All runs have begun..."
+
+# Retrieve final status of each run
+for RP in ${!RPIDS[@]}; do
+    classify_run $RP
+done
+
+logmsg "Tests completed!"
+
+echo "Finished" > $TESTPATH/my.status

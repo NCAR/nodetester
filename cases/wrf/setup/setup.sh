@@ -9,79 +9,86 @@
 # Exit upon error
 set -e
 
-# Detect batch system
-if which qsub >& /dev/null; then
-    JSCHED=pbs SUBCMD="qsub -W block=true"
+# Use PBS for all systems
+if [[ $NCAR_HOST == cheyenne ]]; then
+    SUBCMD="qsub -W block=true -q system -v MPIBIN=mpiexec_mpt"
 else
-    JSCHED=slurm SUBCMD="sbatch --wait"
+    SUBCMD="qsub -W block=true -q casper -v MPIBIN=mpirun"
 fi
 
+WRF_VERSION=3.4
 MAINDIR="$( cd "$(dirname "$0")" ; pwd )"
 
 # Prepare module environment
+echo "Resetting module environment to defaults ..."
 module purge
 module reset
 
 # Grab input files from Campaign Storage
 if [[ ! -d data ]]; then
+    echo "Retrieving input data for WRF case ..."
     gci cget -r cisl/csg/nodetester/wrf/:data/
 fi
 
 # Prepare build dir
-SYSID=$(hostname | tr -d '[0-9]')
-mkdir -p $SYSID/run
-cd $SYSID
+mkdir -p $NCAR_HOST/run
+cd $NCAR_HOST
 
 # Grab and extrace source
-tar -xvf ~wrfhelp/SOURCE_CODE/WRFV4.1.1.TAR
-cd WRFV4.1.1
+echo "Unpacking WRF V${WRF_VERSION} ..."
+tar -xf ~wrfhelp/SOURCE_CODE/WRFV${WRF_VERSION}.tar.gz
+cd WRFV${WRF_VERSION}
 
 # Perform config of WRF for dmpar (numbers may change based on version)
 case $LMOD_FAMILY_COMPILER in
     intel)
         COPT=15
         ;;
-    gnu)
+    gnu|gcc)
         COPT=34
         ;;
-    pgi)
-        COPT=54
+    cce)
+        COPT=46
         ;;
 esac
 
+echo "Configuring WRF with compile option $COPT ..."
 ./configure << EOF
 $COPT
 1
 EOF
 
 # Now compile
+echo "Compiling WRF for em_real run ..."
 ./compile em_real |& tee compile.log
 
 # Set up to run real
+echo "Running real.exe ..."
 ln -s $PWD/run/* ../run/
 cd ../run
 rm namelist.input
 ln -s $MAINDIR/data/met_em* .
 ln -s $MAINDIR/namelist.real namelist.input
-cp $MAINDIR/real.$JSCHED real.job
+cp $MAINDIR/*.pbs .
 
-$SUBCMD real.job
+$SUBCMD real.pbs
 
 # Run WRF for spin-up
+echo "Running wrf.exe for case spin-up ..."
 rm namelist.input
 ln -s $MAINDIR/namelist.wrfpt1 namelist.input
-cp $MAINDIR/wrfpt1.$JSCHED wrfpt1.job
 
-$SUBCMD wrfpt1.job
+$SUBCMD wrfpt1.pbs
 
 # Run WRF to generate verification data
+echo "Running wrf.exe to generate case data ..."
 rm namelist.input
 ln -s $MAINDIR/namelist.wrfpt2 namelist.input
-cp $MAINDIR/wrfpt2.$JSCHED wrfpt2.job
 
-$SUBCMD wrfpt2.job
+$SUBCMD wrfpt2.pbs
 
 # Store output
+echo "Organizing case output in $PWD/output ..."
 cd ../
 mkdir -p output
 
@@ -95,3 +102,13 @@ mv run/wrfout_d01_2001-10-25_03:00:00 output/expected_wrfout_d01_2001-10-25_03:0
 mv run/wrfrst_d01_2001-10-25_00:00:00 output/
 mv run/wrfbdy_d01 output/
 cp $MAINDIR/wrf_stats output/
+
+cat > output/info << EOF
+WRF Pairwise Test Case
+----------------------
+System:     $NCAR_HOST
+Origin:     $(date)
+WRF:        $WRF_VERSION
+
+$(module list)
+EOF

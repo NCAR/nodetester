@@ -2,10 +2,9 @@
 #PBS -N conus-real
 #PBS -A SCSG0001
 #PBS -l walltime=05:00
-#PBS -q system
 #PBS -j oe
 #PBS -o real.log
-#PBS -l select=1:ncpus=4:mpiprocs=4
+#PBS -l select=1:ncpus=4:mpiprocs=4:mem=45GB
 
 # Setup environment
 export TMPDIR=/glade/scratch/$USER/tmp
@@ -15,7 +14,7 @@ module purge
 module reset
 
 # Run real.exe
-mpiexec_mpt ./real.exe
+$MPIBIN ./real.exe
 
 # Save log files
 mkdir -p logs.real

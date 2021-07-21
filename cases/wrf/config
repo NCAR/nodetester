@@ -1,2 +1,16 @@
+# Case settings
 CASENAME="149-step WRF Pairwise Run"
 NPR=2
+
+# Job settings
+JOBNAME=NT-WRF
+RESFLAGS=":mem=45GB"
+WALLTIME=3600
+
+# Runtime settings
+export OMP_NUM_THREADS=1
+
+# Testing thresholds (must be integers)
+export expected_time_steps=149  # 149 time steps
+export max_cpu_time=70          # 60 s expected, rounding up to 70 s
+export max_io_time=20           # 5-15 s typical, but not complaining until 20 s
