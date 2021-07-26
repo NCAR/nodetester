@@ -6,6 +6,7 @@ NPR=2
 JOBNAME=NT-WRF
 RESFLAGS=":mem=40GB"
 WALLTIME=3600
+export PPN=36
 
 # Runtime settings
 export OMP_NUM_THREADS=1
