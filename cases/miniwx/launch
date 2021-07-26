@@ -1,0 +1,51 @@
+#!/bin/bash
+
+# Before beginning, sleep a little to help GLADE
+sleep $[($RANDOM % 30) + 1]s
+
+# Run OpenACC miniWeather (make sure it doesn't run forever - 5 min max)
+timeout 5m $MPICMD $HOSTLIST $RUNARGS ./openacc >& output.log   # launch the executable
+
+# ----- CHECK FOR SUCCESSFUL EXECUTION ----- #
+
+exit_code=$?
+
+if [ $exit_code -ne 0 ]; then
+    if [ $exit_code -eq 124 ]; then
+        logmsg "TIMEOUT ERROR - $HOSTLIST"
+    else
+        logmsg "EXECUTION ERROR - $HOSTLIST"
+    fi
+
+    FAIL=TRUE
+else
+    # Check for successful integration
+    actual_time_steps=$(grep -c "Elapsed Time" output.log)
+
+    if [ $actual_time_steps -ne $expected_time_steps ]; then
+        logmsg "NUM STEPS ERROR (${actual_time_steps}!=$expected_time_steps) - $HOSTLIST"
+        FAIL=TRUE
+    fi
+
+    # Check for output consistency
+    file=output.nc
+    diff $file expected_$file > /dev/null 2>&1
+
+    if [ $? -ne 0 ]; then
+        logmsg "OUTPUT ERROR (${file}) - $HOSTLIST"
+        FAIL=TRUE
+    fi
+
+    # Check CPU time spent during simulation
+    actual_cpu_time=$(awk '/CPU Time/ { print $3 }') 
+    if (( $(bc <<< "$actual_cpu_time > $max_cpu_time") )); then
+        logmsg "CPU TIME EXCEEDED ($actual_cpu_time>${max_cpu_time}s) - $HOSTLIST"
+        FAIL=TRUE
+    fi
+
+    echo $actual_cpu_time >> $TESTPATH/cpu.dat
+fi
+
+if [[ $FAIL == TRUE ]]; then
+    exit 1
+fi

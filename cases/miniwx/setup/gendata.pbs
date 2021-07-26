@@ -1,0 +1,17 @@
+#!/bin/bash
+#PBS -N miniwx-setup
+#PBS -A SCSG0001
+#PBS -l walltime=05:00
+#PBS -j oe
+#PBS -o setup.log
+#PBS -l select=2:ncpus=4:mpiprocs=4:mem=100GB:ngpus=4
+
+# Setup environment
+export TMPDIR=/glade/scratch/$USER/tmp
+mkdir -p $TMPDIR
+
+module purge
+module load ncarenv nvhpc/21.3 openmpi pnetcdf cuda/11.0.3 
+
+# Run OpenACC miniWeather
+$MPIBIN ./openacc

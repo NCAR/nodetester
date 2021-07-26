@@ -1,0 +1,16 @@
+# Case settings
+CASENAME="MiniWeather OpenACC GPU Test"
+NPR=2
+
+# Job settings
+JOBNAME=NT-WRF
+RESFLAGS=":mem=100GB:ngpus=4 -l gpu_type=v100"
+WALLTIME=3600
+export PPN=4
+
+# Runtime settings
+export OMP_NUM_THREADS=1
+
+# Testing thresholds (must be integers)
+export expected_time_steps=12000
+export max_cpu_time=130             # 115 s expected, but not complaining until 130 s
