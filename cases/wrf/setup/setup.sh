@@ -10,7 +10,7 @@
 set -e
 
 # Use PBS for all systems
-if [[ $NCAR_HOST == cheyenne ]]; then
+if [[ $NCAR_HOST == cheyenne ]] || [[ $NCAR_HOST == laramie ]]; then
     SUBCMD="qsub -W block=true -q system -v MPIBIN=mpiexec_mpt"
 else
     SUBCMD="qsub -W block=true -q casper -v MPIBIN=mpirun"

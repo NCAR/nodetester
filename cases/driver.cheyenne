@@ -1,5 +1,6 @@
 #!/bin/bash
 #PBS -j oe
+#PBS -k oed
 
 source my.env
 echo "Running" > $TESTPATH/my.status
@@ -12,7 +13,18 @@ function logmsg {
     fi
 }
 
-export -f logmsg
+function classify_run {
+    if [[ $exit_code -eq 0 ]]; then
+        echo "$RUN $HOSTLIST" >> $TESTPATH/pass
+    else
+        echo "$RUN $HOSTLIST" >> $TESTPATH/fail
+    fi
+    
+    sed -i "/$$/d" $TESTPATH/my.active
+    echo $$ >> $TESTPATH/my.done
+}
+
+export -f logmsg classify_run
 
 logmsg "Using $CASENAME node test"
 logmsg "Starting tests..."
@@ -35,20 +47,8 @@ NUMNODES=${#NODES[@]}
 
 # Create and run cases
 cd runs
-RN=1 NNODES=1
-declare -A RPIDS
-
-function classify_run {
-    wait $1
-
-    if [[ $? -eq 0 ]]; then
-        echo ${RPIDS[$1]} >> $TESTPATH/pass
-    else
-        echo ${RPIDS[$1]} >> $TESTPATH/fail
-    fi
-
-    unset RPIDS[$1]
-}
+echo "Submitting" > $TESTPATH/my.status
+RN=0 NNODES=1
 
 function start_run {
     export RUN=R$RN
@@ -56,26 +56,26 @@ function start_run {
 
     # Run case
     logmsg "Launching run with nodes ${HOSTLIST}..."
-    echo $RUN $HOSTLIST >> $TESTPATH/map
-    ${TESTPATH}/launch &
+    $TESTPATH/launch &
+    MYPID=$!
+    echo $MYPID >> $TESTPATH/my.active
 
-    # Track PIDs (and note first run PID)
-    if [[ $RN == 1 ]]; then
-        FJPID=$!; RPIDS[$FJPID]="$RUN $HOSTLIST"
-    else
-        RPIDS[$!]="$RUN $HOSTLIST"
+    if [[ $RN -eq 0 ]]; then
+        FJPID=$MYPID
     fi
 
     cd ../
     unset RUN
 }
 
-while [[ $RN -le $NUMRUNS ]]; do
+while [[ $RN -lt $NUMRUNS ]]; do
     sleep 0.1
 
     if [[ $N == $NUMNODES ]]; then
         # Need to wait for first run to finish before run can use initial nodes
-        classify_run $FJPID
+        while ! grep -q "^$FJPID" $TESTPATH/my.done; do
+            sleep 1
+        done
         N=0
     fi
 
@@ -96,12 +96,12 @@ while [[ $RN -le $NUMRUNS ]]; do
 done
 
 logmsg "All runs have begun..."
+echo "Polling" > $TESTPATH/my.status
 
-# Retrieve final status of each run
-for RP in ${!RPIDS[@]}; do
-    classify_run $RP
+# Wait until all runs have completed
+while [[ $(wc -l $TESTPATH/my.done) -lt $NUMRUNS ]]; do
+    sleep 1;
 done
 
 logmsg "Tests completed!"
-
 echo "Finished" > $TESTPATH/my.status

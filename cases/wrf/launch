@@ -16,8 +16,6 @@ if [ $exit_code -ne 0 ]; then
     else
         logmsg "EXECUTION ERROR - $HOSTLIST"
     fi
-
-    FAIL=TRUE
 else
     # Run stats script and store output in array
     IFS=' ' read -r -a stats <<< $(./wrf_stats -t -d .)
@@ -25,7 +23,7 @@ else
     # Check for successful integration
     if [ ${stats[2]} -ne $expected_time_steps ]; then
         logmsg "NUM STEPS ERROR (${stats[2]}!=$expected_time_steps) - $HOSTLIST"
-        FAIL=TRUE
+        exit_code=-1
     fi
 
     # Check for output consistency
@@ -34,7 +32,7 @@ else
 
     if [ $? -ne 0 ]; then
         logmsg "OUTPUT ERROR (${file}) - $HOSTLIST"
-        FAIL=TRUE
+        exit_code=-1
     fi
 
     # Check for runtime conditions
@@ -42,24 +40,22 @@ else
 
     if [ $rcc -gt 0 ]; then
         logmsg "RUNTIME CONDITION (${rcc}) - $HOSTLIST"
-        FAIL=TRUE
+        exit_code=-1
     fi
 
     # Check CPU and I/O speed
     if (( $(bc <<< "${stats[1]} > $max_cpu_time") )); then
         logmsg "CPU/STEP EXCEEDED (${stats[1]}>${max_cpu_time}s) - $HOSTLIST"
-        FAIL=TRUE
+        exit_code=-1
     fi
 
     if (( $(bc <<< "${stats[5]} > $max_io_time") )); then
         logmsg "IO/STEP EXCEEDED (${stats[5]}>${max_io_time}s) - $HOSTLIST"
-        FAIL=TRUE
+        exit_code=-1
     fi
 
     echo ${stats[1]} >> $TESTPATH/cpu.dat
     echo ${stats[5]} >> $TESTPATH/io.dat
 fi
 
-if [[ $FAIL == TRUE ]]; then
-    exit 1
-fi
+classify_run

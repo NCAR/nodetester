@@ -6,7 +6,7 @@
 #   test case.
 #
 #	Author:    Brian Vanderwende
-#	Revised:   22:24, 20 Jul 2021
+#	Revised:   14:37, 29 Dec 2021
 
 # ===== ERROR HANDLING
 
@@ -237,7 +237,7 @@ JOBID=$(eval "$SUBCMD -o job.log $JOBSETTINGS $SCHEDOPTS driver.${MACHINE}")
 JOBID=${JOBID##* }
 STATCMD=${STATCMD/JOBID/$JOBID}
 
-echo -n "Submitted" > my.status
+echo -n "Queued" > my.status
 touch map pass fail
 ELAPSED=0
 SECONDS=0
@@ -254,16 +254,16 @@ $(date +%FT%T)
 Test Case:          $CASENAME
 Job ID:             $JOBID
 Node Order Seed:    $SEED
-Job Status:         $JOBSTAT
 Elapsed Time:       $TELAP
 Execution Queue:    $QUEUE
 Job Directory:      $TESTPATH
 
-Runs Started:       $NUMSUB / $NUMRUNS
-Runs Finished:      $((NUMPASS + NUMFAIL)) / $NUMRUNS
+Job Status:         $JOBSTAT
+Tests Running:      $NUMACTIVE
 
-Successful:         $NUMPASS
-Failed:             $NUMFAIL
+Completed:          $NUMDONE / $NUMRUNS
+Successful:         $NUMPASS / $NUMRUNS
+Failed:             $NUMFAIL / $NUMRUNS
 
 ====================
 Recent log messages:
@@ -291,7 +291,8 @@ while [[ $JOBSTAT != "Finished" ]]; do
     # Write logs
     sleep 5
     JOBSTAT=$(cat my.status)
-    NUMSUB=$(wc -l < map 2> /dev/null)
+    NUMACTIVE=$(wc -l < my.active 2> /dev/null)
+    NUMDONE=$(wc -l < my.done 2> /dev/null)
     NUMPASS=$(wc -l < pass 2> /dev/null)
     NUMFAIL=$(wc -l < fail 2> /dev/null)
     TELAP=$(TZ=UTC0 printf '%(%M min %S sec)T\n' $((ELAPSED+SECONDS)))
@@ -330,4 +331,5 @@ if [[ -s ${TESTPATH}/fail ]]; then
     logmsg $(awk '{print $2}' ${TESTPATH}/fail | paste -s -d,)
 fi
 
+rm -f ${TESTPATH}/my.*
 echo -e "\nResults stored in $TESTPATH"

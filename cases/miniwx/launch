@@ -17,14 +17,14 @@ if [ $exit_code -ne 0 ]; then
         logmsg "EXECUTION ERROR - $HOSTLIST"
     fi
 
-    FAIL=TRUE
+    exit_code=-1
 else
     # Check for successful integration
     actual_time_steps=$(grep -c "Elapsed Time" output.log)
 
     if [ $actual_time_steps -ne $expected_time_steps ]; then
         logmsg "NUM STEPS ERROR (${actual_time_steps}!=$expected_time_steps) - $HOSTLIST"
-        FAIL=TRUE
+        exit_code=-1
     fi
 
     # Check for output consistency
@@ -33,19 +33,17 @@ else
 
     if [ $? -ne 0 ]; then
         logmsg "OUTPUT ERROR (${file}) - $HOSTLIST"
-        FAIL=TRUE
+        exit_code=-1
     fi
 
     # Check CPU time spent during simulation
     actual_cpu_time=$(awk '/CPU Time/ { print $3 }') 
     if (( $(bc <<< "$actual_cpu_time > $max_cpu_time") )); then
         logmsg "CPU TIME EXCEEDED ($actual_cpu_time>${max_cpu_time}s) - $HOSTLIST"
-        FAIL=TRUE
+        exit_code=-1
     fi
 
     echo $actual_cpu_time >> $TESTPATH/cpu.dat
 fi
 
-if [[ $FAIL == TRUE ]]; then
-    exit 1
-fi
+classify_run
