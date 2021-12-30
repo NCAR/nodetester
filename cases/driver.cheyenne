@@ -48,7 +48,7 @@ NUMNODES=${#NODES[@]}
 # Create and run cases
 cd runs
 echo "Submitting" > $TESTPATH/my.status
-RN=0 NNODES=1
+RN=1 NNODES=1
 
 function start_run {
     export RUN=R$RN
@@ -60,7 +60,7 @@ function start_run {
     MYPID=$!
     echo $MYPID >> $TESTPATH/my.active
 
-    if [[ $RN -eq 0 ]]; then
+    if [[ $RN -eq 1 ]]; then
         FJPID=$MYPID
     fi
 
@@ -68,12 +68,12 @@ function start_run {
     unset RUN
 }
 
-while [[ $RN -lt $NUMRUNS ]]; do
+while [[ $RN -le $NUMRUNS ]]; do
     sleep 0.1
 
     if [[ $N == $NUMNODES ]]; then
         # Need to wait for first run to finish before run can use initial nodes
-        while ! grep -q "^$FJPID" $TESTPATH/my.done; do
+        while ! grep -q "^$FJPID" $TESTPATH/my.done 2> /dev/null; do
             sleep 1
         done
         N=0
@@ -99,8 +99,8 @@ logmsg "All runs have begun..."
 echo "Polling" > $TESTPATH/my.status
 
 # Wait until all runs have completed
-while [[ $(wc -l $TESTPATH/my.done) -lt $NUMRUNS ]]; do
-    sleep 1;
+while [[ $(wc -l < $TESTPATH/my.done 2> /dev/null) -lt $NUMRUNS ]]; do
+    sleep 1
 done
 
 logmsg "Tests completed!"

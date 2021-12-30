@@ -16,7 +16,7 @@ else
     SUBCMD="qsub -W block=true -q casper -v MPIBIN=mpirun"
 fi
 
-WRF_VERSION=3.4
+WRF_VERSION=4.3
 MAINDIR="$( cd "$(dirname "$0")" ; pwd )"
 
 # Prepare module environment

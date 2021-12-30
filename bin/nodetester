@@ -6,7 +6,7 @@
 #   test case.
 #
 #	Author:    Brian Vanderwende
-#	Revised:   14:37, 29 Dec 2021
+#	Revised:   17:01, 29 Dec 2021
 
 # ===== ERROR HANDLING
 
@@ -261,9 +261,9 @@ Job Directory:      $TESTPATH
 Job Status:         $JOBSTAT
 Tests Running:      $NUMACTIVE
 
-Completed:          $NUMDONE / $NUMRUNS
-Successful:         $NUMPASS / $NUMRUNS
-Failed:             $NUMFAIL / $NUMRUNS
+Completed:          ${NUMDONE:-0} / $NUMRUNS
+Successful:         ${NUMPASS:-0} / $NUMRUNS
+Failed:             ${NUMFAIL:-0} / $NUMRUNS
 
 ====================
 Recent log messages:
@@ -331,5 +331,5 @@ if [[ -s ${TESTPATH}/fail ]]; then
     logmsg $(awk '{print $2}' ${TESTPATH}/fail | paste -s -d,)
 fi
 
-rm -f ${TESTPATH}/my.*
+#rm -f ${TESTPATH}/my.*
 echo -e "\nResults stored in $TESTPATH"
