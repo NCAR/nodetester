@@ -4,7 +4,7 @@
 sleep $[($RANDOM % 30) + 1]s
 
 # Run OpenACC miniWeather (make sure it doesn't run forever - 5 min max)
-timeout 5m $MPICMD $HOSTLIST $RUNARGS ./openacc >& output.log   # launch the executable
+timeout 5m $MPICMD $MPIHOSTS $RUNARGS ./openacc >& output.log   # launch the executable
 
 # ----- CHECK FOR SUCCESSFUL EXECUTION ----- #
 

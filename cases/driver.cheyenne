@@ -14,14 +14,14 @@ function logmsg {
 }
 
 function classify_run {
+    sed -i "/$$/d" $TESTPATH/rpids.active
+    echo $$ >> $TESTPATH/rpids.done
+    
     if [[ $exit_code -eq 0 ]]; then
         echo "$RUN $HOSTLIST" >> $TESTPATH/pass
     else
         echo "$RUN $HOSTLIST" >> $TESTPATH/fail
     fi
-    
-    sed -i "/$$/d" $TESTPATH/my.active
-    echo $$ >> $TESTPATH/my.done
 }
 
 export -f logmsg classify_run
@@ -42,12 +42,13 @@ module reset
 
 # Get shuffled list of unique nodes
 HEADNODE=$(head -n1 $PBS_NODEFILE)
-readarray -t NODES <<< "$(uniq $PBS_NODEFILE | shuf --random-source=<(./seedfunc))"
+readarray -t NODES <<< "$(uniq $PBS_NODEFILE | tail -n +2 | shuf --random-source=<(./seedfunc))"
+NODES+=( $HEADNODE )
 NUMNODES=${#NODES[@]}
 
 # Create and run cases
 cd runs
-echo "Submitting" > $TESTPATH/my.status
+echo "Launching" > $TESTPATH/my.status
 RN=1 NNODES=1
 
 function start_run {
@@ -58,7 +59,7 @@ function start_run {
     logmsg "Launching run with nodes ${HOSTLIST}..."
     $TESTPATH/launch &
     MYPID=$!
-    echo $MYPID >> $TESTPATH/my.active
+    echo $MYPID >> $TESTPATH/rpids.active
 
     if [[ $RN -eq 1 ]]; then
         FJPID=$MYPID
@@ -69,39 +70,45 @@ function start_run {
 }
 
 while [[ $RN -le $NUMRUNS ]]; do
-    sleep 0.1
+    sleep 0.05
 
     if [[ $N == $NUMNODES ]]; then
-        # Need to wait for first run to finish before run can use initial nodes
-        while ! grep -q "^$FJPID" $TESTPATH/my.done 2> /dev/null; do
-            sleep 1
-        done
         N=0
     fi
 
     # Open MPI hangs if head node is not listed first in hostlist
+    export HOSTLIST=${HOSTLIST},${NODES[$N]%%.*}
+    MPINODE=$(eval echo $HOSTFMT)
+
     if [[ ${NODES[$N]} == $HEADNODE ]]; then
-        export HOSTLIST=${NODES[$N]%%.*},${HOSTLIST}
+        # Need to wait for other runs to finish before final run to
+        # avoid overhead penalty on head node
+        logmsg "Waiting before submitting test run on head node..."
+        
+        while [[ $(wc -l < $TESTPATH/rpids.active 2> /dev/null) -gt 0 ]]; do
+            sleep 1
+        done
+
+        export MPIHOSTS=${MPINODE},${MPIHOSTS}
     else
-        export HOSTLIST=${HOSTLIST},${NODES[$N]%%.*}
+        export MPIHOSTS=${MPIHOSTS},${MPINODE}
     fi
 
     if [[ $NNODES -eq $NPR ]]; then
         HOSTLIST=$(sed -E -e 's/^,|,$//g' -e 's/,,/,/g' <<< $HOSTLIST)
+        MPIHOSTS=$(sed -E -e 's/^,|,$//g' -e 's/,,/,/g' <<< $MPIHOSTS)
         start_run
-        ((RN++)); NNODES=0 HOSTLIST=
+        ((RN++)); NNODES=0 HOSTLIST= MPIHOSTS=
     fi
     
     ((N++)); ((NNODES++))
 done
 
-logmsg "All runs have begun..."
+logmsg "Waiting for final run to finish..."
 echo "Polling" > $TESTPATH/my.status
 
 # Wait until all runs have completed
-while [[ $(wc -l < $TESTPATH/my.done 2> /dev/null) -lt $NUMRUNS ]]; do
-    sleep 1
-done
+wait
 
 logmsg "Tests completed!"
 echo "Finished" > $TESTPATH/my.status

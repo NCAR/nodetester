@@ -13,5 +13,14 @@ export OMP_NUM_THREADS=1
 
 # Testing thresholds (must be integers)
 export expected_time_steps=149  # 149 time steps
-export max_cpu_time=70          # 60 s expected, rounding up to 70 s
-export max_io_time=20           # 5-15 s typical, but not complaining until 20 s
+
+case $MACHINE in
+    cheyenne)
+        export max_cpu_time=67          # 63s typical
+        export max_io_time=20           # 5-15 s typical
+        ;;
+    dav)
+        export max_cpu_time=50          # 45s typical
+        export max_io_time=30           # 5-25 s typical
+        ;;
+esac

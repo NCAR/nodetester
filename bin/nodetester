@@ -6,7 +6,7 @@
 #   test case.
 #
 #	Author:    Brian Vanderwende
-#	Revised:   17:01, 29 Dec 2021
+#	Revised:   23:00, 29 Dec 2021
 
 # ===== ERROR HANDLING
 
@@ -259,7 +259,7 @@ Execution Queue:    $QUEUE
 Job Directory:      $TESTPATH
 
 Job Status:         $JOBSTAT
-Tests Running:      $NUMACTIVE
+Tests Running:      ${NUMACTIVE:-0}
 
 Completed:          ${NUMDONE:-0} / $NUMRUNS
 Successful:         ${NUMPASS:-0} / $NUMRUNS
@@ -289,10 +289,10 @@ while [[ $JOBSTAT != "Finished" ]]; do
     fi
 
     # Write logs
-    sleep 5
+    sleep 2
     JOBSTAT=$(cat my.status)
-    NUMACTIVE=$(wc -l < my.active 2> /dev/null)
-    NUMDONE=$(wc -l < my.done 2> /dev/null)
+    NUMACTIVE=$(wc -l < rpids.active 2> /dev/null)
+    NUMDONE=$(wc -l < rpids.done 2> /dev/null)
     NUMPASS=$(wc -l < pass 2> /dev/null)
     NUMFAIL=$(wc -l < fail 2> /dev/null)
     TELAP=$(TZ=UTC0 printf '%(%M min %S sec)T\n' $((ELAPSED+SECONDS)))
@@ -331,5 +331,4 @@ if [[ -s ${TESTPATH}/fail ]]; then
     logmsg $(awk '{print $2}' ${TESTPATH}/fail | paste -s -d,)
 fi
 
-#rm -f ${TESTPATH}/my.*
 echo -e "\nResults stored in $TESTPATH"
