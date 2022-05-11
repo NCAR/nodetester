@@ -4,7 +4,7 @@
 #PBS -l walltime=20:00
 #PBS -j oe
 #PBS -o wrfpt1.log
-#PBS -l select=2:ncpus=36:mpiprocs=36:mem=45GB
+#PBS -l select=2:ncpus=36:mpiprocs=36:ompthreads=1:mem=45GB
 
 # Setup environment
 export TMPDIR=/glade/scratch/$USER/tmp

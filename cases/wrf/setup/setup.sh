@@ -16,7 +16,7 @@ else
     SUBCMD="qsub -W block=true -q casper -v MPIBIN=mpirun"
 fi
 
-WRF_VERSION=4.3
+WRF_VERSION=4.4
 MAINDIR="$( cd "$(dirname "$0")" ; pwd )"
 
 # Prepare module environment
@@ -92,7 +92,7 @@ echo "Organizing case output in $PWD/output ..."
 cd ../
 mkdir -p output
 
-COPYLIST='*.TBL *.formatted namelist.input RRTMG* wrf.exe'
+COPYLIST='CAM* *.TBL *.formatted namelist.input RRTMG* wrf.exe'
 
 for CPF in $COPYLIST; do
     cp run/$CPF output/
